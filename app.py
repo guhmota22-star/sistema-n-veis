@@ -4,19 +4,74 @@ import datetime
 import pandas as pd
 import plotly.graph_objects as go
 
+import streamlit as st
+
 # --- 1. CONFIGURAÇÃO DE INTERFACE & ESTILO ---
 st.set_page_config(page_title="SISTEMA: MONARCA", page_icon="🔱", layout="wide")
 
+# Importação da fonte Orbitron para o estilo Solo Leveling
 st.markdown("""
     <style>
-    .stApp { background-color: #0a0a0b; color: #e0e0e0; font-family: 'Orbitron', sans-serif; }
-    h1, h2, h3 { color: #00d4ff; text-shadow: 0 0 15px #00d4ff; text-transform: uppercase; }
-    .stButton>button { background-color: rgba(0, 212, 255, 0.1); border: 1px solid #00d4ff; color: #00d4ff; width: 100%; transition: 0.3s; }
-    .stButton>button:hover { background-color: #00d4ff !important; color: black !important; box-shadow: 0 0 20px #00d4ff; }
-    .label-hp { color: #ff4b4b; font-weight: bold; }
-    .label-mp { color: #00d4ff; font-weight: bold; }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+    /* Fundo e Texto Global */
+    .stApp { 
+        background-color: #0a0a0b; 
+        color: #e0e0e0; 
+        font-family: 'Orbitron', sans-serif; 
+    }
+
+    /* Títulos com efeito de brilho Neon */
+    h1, h2, h3 { 
+        color: #00d4ff; 
+        text-shadow: 0 0 10px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.2);
+        text-transform: uppercase; 
+        letter-spacing: 2px;
+    }
+
+    /* Botões Estilo HUD */
+    .stButton>button { 
+        background-color: rgba(0, 212, 255, 0.05); 
+        border: 1px solid #00d4ff; 
+        color: #00d4ff; 
+        width: 100%; 
+        border-radius: 5px;
+        transition: all 0.3s ease-in-out;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .stButton>button:hover { 
+        background-color: #00d4ff !important; 
+        color: #000000 !important; 
+        box-shadow: 0 0 15px #00d4ff; 
+        transform: scale(1.02);
+    }
+
+    /* Classes Dinâmicas de Rank (Preparadas para o futuro) */
+    .rank-e { color: #9e9e9e; text-shadow: 0 0 5px #9e9e9e; } /* Cinza */
+    .rank-d { color: #4caf50; text-shadow: 0 0 5px #4caf50; } /* Verde */
+    .rank-c { color: #2196f3; text-shadow: 0 0 5px #2196f3; } /* Azul */
+    .rank-s { color: #ffcc00; text-shadow: 0 0 10px #ffcc00; } /* Dourado */
+
+    /* Cores das Labels de Status */
+    .label-hp { color: #ff4b4b; font-weight: bold; text-shadow: 0 0 5px rgba(255, 75, 75, 0.4); }
+    .label-mp { color: #00d4ff; font-weight: bold; text-shadow: 0 0 5px rgba(0, 212, 255, 0.4); }
     .label-xp { color: #ffaa00; font-weight: bold; }
     .label-coins { color: #ffee00; font-weight: bold; }
+
+    /* Customização das Barras de Progresso */
+    div[st-ui="stProgress"] > div > div > div {
+        background-color: #00d4ff; /* Cor padrão, será alterada via código depois */
+    }
+    
+    /* Container para o HUD parecer uma janela flutuante */
+    .hud-container {
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        padding: 20px;
+        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 0.02);
+    }
     </style>
     """, unsafe_allow_html=True)
 
