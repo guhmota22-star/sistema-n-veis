@@ -27,12 +27,10 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 def load_data():
     hoje = str(datetime.date.today())
     try:
-        # Tenta ler da Google Sheet (Caminho B)
         df = conn.read(spreadsheet=st.secrets["SHEET_URL"], worksheet="Sheet1")
         data_str = df[df['id'] == 'guh_mota']['data_json'].values[0]
         return json.loads(data_str)
     except Exception:
-        # Se falhar (primeira vez), carrega valores base
         return {
             "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0,
             "points": 0, "last_reset": hoje, "daily_done": False,
@@ -43,12 +41,27 @@ def load_data():
 def save_to_akasha(data):
     try:
         df = pd.DataFrame([{"id": "guh_mota", "data_json": json.dumps(data)}])
-        conn.update(spreadsheet=st.secrets["SHEET_URL"], data=df)
-    except:
-        st.error("Falha ao sincronizar com o Registro de Akasha.")
+        # CORREÇÃO CRÍTICA: worksheet="Sheet1" adicionado abaixo
+        conn.update(spreadsheet=st.secrets["SHEET_URL"], data=df, worksheet="Sheet1")
+        st.toast("✅ Akasha Sincronizado!", icon="💾")
+    except Exception as e:
+        st.error(f"Falha ao sincronizar: {e}")
 
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
+
+def add_xp(amount, coins, reason):
+    st.session_state.data["xp"] += amount
+    st.session_state.data["coins"] += coins
+    st.session_state.data["daily_done"] = True
+    xp_needed = int(100 * (st.session_state.data["lvl"] ** 1.5))
+    if st.session_state.data["xp"] >= xp_needed:
+        st.session_state.data["lvl"] += 1
+        st.session_state.data["xp"] = 0
+        st.session_state.data["points"] += 5
+        st.balloons()
+    st.session_state.data["history"].append(f"{datetime.datetime.now().strftime('%H:%M')} - {reason}")
+    save_to_akasha(st.session_state.data)
 
 # --- 3. LÓGICA DE TEMPO REAL (PENALIDADE DIÁRIA) ---
 hoje_dt = str(datetime.date.today())
