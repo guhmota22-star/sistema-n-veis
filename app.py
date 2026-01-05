@@ -108,45 +108,84 @@ tab1, tab2, tab3, tab4 = st.tabs(["🗡️ QUESTS", "📊 ATRIBUTOS", "🛒 LOJA
 
 with tab1:
     st.subheader("Daily Quests")
+    
+    # --- LINHA 1 ---
     c1, c2, c3 = st.columns(3)
     with c1:
-        if st.button("🏃 EXERCÍCIO (30 MIN)"):
+        if st.button("🏋️ TREINO"):
             if st.session_state.data["mp"] >= 20:
                 st.session_state.data["mp"] -= 20
                 st.session_state.data["stats"]["STR"] += 0.5
-                add_xp(30, 10, "Treino de Força")
+                add_xp(30, 10, "Treino Concluído")
                 st.rerun()
             else: st.error("Falta de Mana!")
     with c2:
-        if st.button("📖 LER 20 PÁGINAS"):
+        if st.button("📖 LER UM CAPÍTULO"):
             if st.session_state.data["mp"] >= 15:
                 st.session_state.data["mp"] -= 15
                 st.session_state.data["stats"]["INT"] += 0.5
-                add_xp(25, 10, "Estudo de Inteligência")
+                add_xp(25, 10, "Leitura de Capítulo")
                 st.rerun()
             else: st.error("Falta de Mana!")
     with c3:
+        if st.button("💊 TOMAR REMÉDIO"):
+            st.session_state.data["stats"]["VIT"] += 0.2
+            add_xp(10, 5, "Medicação Tomada")
+            st.rerun()
+
+    # --- LINHA 2 ---
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        if st.button("🏠 ARRUMAR A CASA"):
+            if st.session_state.data["mp"] >= 15:
+                st.session_state.data["mp"] -= 15
+                st.session_state.data["stats"]["AGI"] += 0.3
+                add_xp(20, 10, "Ambiente Organizado")
+                st.rerun()
+            else: st.error("Falta de Mana!")
+    with c5:
+        if st.button("🗣️ EXERCÍCIO DE FONO"):
+            if st.session_state.data["mp"] >= 10:
+                st.session_state.data["mp"] -= 10
+                st.session_state.data["stats"]["CHA"] += 0.3
+                add_xp(15, 5, "Treino de Fono")
+                st.rerun()
+            else: st.error("Falta de Mana!")
+    with c6:
+        if st.button("🗂️ FLASHCARDS"):
+            if st.session_state.data["mp"] >= 10:
+                st.session_state.data["mp"] -= 10
+                st.session_state.data["stats"]["INT"] += 0.3
+                add_xp(20, 10, "Revisão Espaçada")
+                st.rerun()
+            else: st.error("Falta de Mana!")
+
+    # --- LINHA 3 ---
+    c7, c8, c9 = st.columns(3)
+    with c7:
+        if st.button("🧠 ESTUDO COMPLEXO"):
+            if st.session_state.data["mp"] >= 30:
+                st.session_state.data["mp"] -= 30
+                st.session_state.data["stats"]["INT"] += 0.8
+                add_xp(50, 20, "Foco Profundo")
+                st.rerun()
+            else: st.error("Falta de Mana!")
+    with c8:
+        if st.button("🎓 ATIVIDADE ACADÊMICA"):
+            if st.session_state.data["mp"] >= 20:
+                st.session_state.data["mp"] -= 20
+                st.session_state.data["stats"]["SEN"] += 0.5
+                add_xp(40, 15, "Progresso no Internato")
+                st.rerun()
+            else: st.error("Falta de Mana!")
+    with c9:
         if st.button("💤 SONO REPARADOR"):
             st.session_state.data["hp"] = 100
             st.session_state.data["mp"] = 100
             st.session_state.data["daily_done"] = True
-            st.success("HP e MP Restaurados!")
+            st.success("Recuperação Total!")
             save_to_akasha(st.session_state.data)
             st.rerun()
-
-    st.divider()
-    # MASMORRA DE FIM DE SEMANA
-    st.subheader("🏰 MASMORRA ESPECIAL")
-    is_weekend = datetime.date.today().weekday() >= 5
-    if is_weekend:
-        if st.button("🔥 DESAFIO DE FIM DE SEMANA (XP TRIPLO)"):
-            if st.session_state.data["mp"] >= 50:
-                st.session_state.data["mp"] -= 50
-                add_xp(150, 50, "Masmorra de Fim de Semana")
-                st.rerun()
-            else: st.error("Energia insuficiente!")
-    else:
-        st.info("O portal da Masmorra abre apenas aos Sábados e Domingos.")
 
 with tab2:
     st.subheader(f"Pontos de Atributo Disponíveis: {st.session_state.data['points']}")
