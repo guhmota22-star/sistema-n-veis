@@ -86,24 +86,47 @@ def get_initial_data():
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 
-# --- 3. BARRA LATERAL: MEMORY CARD ---
+# --- 3. BARRA LATERAL: REGISTRO DE AKASHA ---
 with st.sidebar:
-    st.header("💾 MEMORY CARD")
-    st.write("Salve seu progresso antes de fechar!")
+    st.markdown("### 💾 REGISTRO DE AKASHA")
+    st.caption("Guarde sua essência antes de fechar o sistema.")
     
     # Exportar Save
-    data_string = json.dumps(st.session_state.data)
-    st.download_button(label="📥 DESCARREGAR SAVE (JSON)", data=data_string, file_name=f"monarca_save_{datetime.date.today()}.json", mime="application/json")
+    # 'indent=4' torna o arquivo JSON legível para humanos no PC
+    data_string = json.dumps(st.session_state.data, indent=4)
+    
+    st.download_button(
+        label="📥 DESCARREGAR SAVE (JSON)", 
+        data=data_string, 
+        file_name=f"monarca_save_{datetime.date.today()}.json", 
+        mime="application/json",
+        use_container_width=True # Otimizado para a barra lateral do PC
+    )
     
     st.divider()
     
     # Importar Save
-    st.subheader("📤 CARREGAR SAVE")
-    uploaded_file = st.file_uploader("Upload do arquivo .json", type="json")
+    st.markdown("### 📤 CARREGAR SAVE")
+    uploaded_file = st.file_uploader("Upload do fragmento .json", type="json")
+    
     if uploaded_file is not None:
-        st.session_state.data = json.load(uploaded_file)
-        st.success("Sincronização Concluída!")
-        st.rerun()
+        try:
+            temp_data = json.load(uploaded_file)
+            
+            # Validação: Verifica se o arquivo tem os campos essenciais do Sistema
+            if "lvl" in temp_data and "stats" in temp_data:
+                st.session_state.data = temp_data
+                st.success("Sincronização com Akasha Concluída!")
+                st.rerun()
+            else:
+                st.error("Assinatura Inválida! Este fragmento não pertence ao Sistema.")
+                
+        except Exception as e:
+            st.error(f"Erro ao restaurar essência: {e}")
+
+    # Espaço extra para estética no PC
+    st.sidebar.markdown("---")
+    st.sidebar.info("Status: Sistema de Persistência Manual Ativo.")
 
 # --- 4. LÓGICA DE PROGRESSÃO ---
 def add_xp(amount, coins, reason):
