@@ -128,22 +128,55 @@ with st.sidebar:
     st.sidebar.markdown("---")
     st.sidebar.info("Status: Sistema de Persistência Manual Ativo.")
 
-# --- 4. LÓGICA DE PROGRESSÃO ---
+# --- 4. LÓGICA DE PROGRESSÃO E RANKING ---
+
+def get_rank(level):
+    """Define o Rank do Caçador com base no nível (Solo Leveling Style)"""
+    if level < 10: return "E"
+    if level < 20: return "D"
+    if level < 30: return "C"
+    if level < 40: return "B"
+    if level < 50: return "A"
+    return "S"
+
 def add_xp(amount, coins, reason):
+    # 1. Adiciona recompensas básicas
     st.session_state.data["xp"] += amount
     st.session_state.data["coins"] += coins
-    # Fórmula de Level Up: $XP_{req} = 100 \times Lvl^{1.5}$
-    xp_needed = int(100 * (st.session_state.data["lvl"] ** 1.5))
     
-    if st.session_state.data["xp"] >= xp_needed:
-        st.session_state.data["lvl"] += 1
-        st.session_state.data["xp"] = 0
-        st.session_state.data["points"] += 5
-        st.balloons()
-        st.success(f"LEVEL UP! BEM-VINDO AO NÍVEL {st.session_state.data['lvl']}")
+    # Notificação discreta de ganho (Ótimo para PC)
+    st.toast(f"✨ +{amount} XP | 💰 +{coins} Moedas", icon="⚔️")
     
-    st.session_state.data["history"].append(f"{datetime.datetime.now().strftime('%d/%m %H:%M')} - {reason}")
-
+    # 2. Processamento de Level Up (com suporte a múltiplos níveis e transbordo)
+    # Fórmula: $XP_{req} = 100 \times Lvl^{1.5}$
+    while True:
+        level = st.session_state.data["lvl"]
+        xp_needed = int(100 * (level ** 1.5))
+        
+        if st.session_state.data["xp"] >= xp_needed:
+            # Sobe de nível e desconta o XP gasto
+            st.session_state.data["xp"] -= xp_needed
+            st.session_state.data["lvl"] += 1
+            st.session_state.data["points"] += 5
+            
+            # Feedback épico de Level Up
+            st.balloons()
+            st.success(f"🎊 NÍVEL UP! VOCÊ ALCANÇOU O NÍVEL {st.session_state.data['lvl']}!")
+            
+            # Verifica se o Rank mudou
+            novo_rank = get_rank(st.session_state.data["lvl"])
+            if novo_rank != get_rank(level):
+                st.warning(f"⚠️ EVOLUÇÃO DE RANK: Você agora é um Caçador de Rank {novo_rank}!")
+        else:
+            break
+            
+    # 3. Registro no Histórico (Limitado a 50 entradas para eficiência)
+    timestamp = datetime.datetime.now().strftime('%d/%m %H:%M')
+    log_entry = f"{timestamp} - {reason} (+{amount} XP)"
+    
+    st.session_state.data["history"].append(log_entry)
+    if len(st.session_state.data["history"]) > 50:
+        st.session_state.data["history"].pop(0) # Remove o mais antigo
 # --- 5. HUD DO MONARCA ---
 st.title("🔱 STATUS: GUH MOTA")
 
