@@ -178,28 +178,80 @@ def add_xp(amount, coins, reason):
     if len(st.session_state.data["history"]) > 50:
         st.session_state.data["history"].pop(0) # Remove o mais antigo
 # --- 5. HUD DO MONARCA ---
-st.title("🔱 STATUS: GUH MOTA")
 
-c_hud1, c_hud2, c_hud3 = st.columns([1, 1, 1])
-with c_hud1:
-    xp_needed = int(100 * (st.session_state.data['lvl'] ** 1.5))
-    st.markdown(f"**NÍVEL {st.session_state.data['lvl']}** | **RANK E**")
-    st.markdown(f"<span class='label-hp'>❤️ HP: {st.session_state.data['hp']}/100</span>", unsafe_allow_html=True)
-    st.progress(st.session_state.data['hp'] / 100)
-    st.markdown(f"<span class='label-mp'>🔷 MP: {st.session_state.data['mp']}/100</span>", unsafe_allow_html=True)
-    st.progress(st.session_state.data['mp'] / 100)
+# Título Principal com efeito de brilho
+st.markdown(f"<h1>🔱 JANELA DE STATUS: {st.session_state.data.get('name', 'GUH MOTA')}</h1>", unsafe_allow_html=True)
 
-with c_hud2:
-    st.markdown(f"<span class='label-xp'>✨ XP: {st.session_state.data['xp']}/{xp_needed}</span>", unsafe_allow_html=True)
-    st.progress(min(st.session_state.data['xp'] / xp_needed, 1.0))
-    st.markdown(f"<span class='label-coins'>💰 MOEDAS: {st.session_state.data['coins']}</span>", unsafe_allow_html=True)
-    st.write("Modo Offline: Armazenamento Local Ativo")
+# Container principal para agrupar o HUD
+hud_container = st.container()
 
-with c_hud3:
-    df_radar = pd.DataFrame(dict(r=list(st.session_state.data["stats"].values()), theta=list(st.session_state.data["stats"].keys())))
-    fig = go.Figure(data=go.Scatterpolar(r=df_radar['r'], theta=df_radar['theta'], fill='toself', line_color='#00d4ff'))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=False, range=[0, 50])), paper_bgcolor="rgba(0,0,0,0)", font_color="white", height=180, margin=dict(t=10, b=10, l=10, r=10))
-    st.plotly_chart(fig, use_container_width=True)
+with hud_container:
+    c_hud1, c_hud2, c_hud3 = st.columns([1.2, 1, 1.2]) # Ajuste de proporção para PC
+    
+    with c_hud1:
+        # Recupera o Rank dinamicamente da Parte 4
+        lvl = st.session_state.data['lvl']
+        rank = get_rank(lvl) # Função definida no bloco anterior
+        
+        st.markdown(f"### <span class='rank-{rank.lower()}'>RANK {rank}</span> | NÍVEL {lvl}", unsafe_allow_html=True)
+        
+        # Status de HP (Vida)
+        hp_val = st.session_state.data['hp']
+        st.markdown(f"<span class='label-hp'>❤️ HP: {hp_val}/100</span>", unsafe_allow_html=True)
+        st.progress(hp_val / 100)
+        
+        # Status de MP (Mana/Energia)
+        mp_val = st.session_state.data['mp']
+        st.markdown(f"<span class='label-mp'>🔷 MP: {mp_val}/100</span>", unsafe_allow_html=True)
+        st.progress(mp_val / 100)
+
+    with c_hud2:
+        st.markdown("### RECOMPENSAS")
+        
+        # Cálculo de XP necessário para exibição
+        xp_atual = st.session_state.data['xp']
+        xp_needed = int(100 * (lvl ** 1.5))
+        percent_xp = min(xp_atual / xp_needed, 1.0)
+        
+        st.markdown(f"<span class='label-xp'>✨ XP: {xp_atual} / {xp_needed}</span>", unsafe_allow_html=True)
+        st.progress(percent_xp)
+        
+        st.markdown(f"<span class='label-coins'>💰 MOEDAS: {st.session_state.data['coins']}</span>", unsafe_allow_html=True)
+        
+        # Indicador de salvamento offline para PC
+        st.caption("📂 Armazenamento: Local (Offline)")
+        st.caption(f"📅 Ciclo Atual: {datetime.date.today().strftime('%d/%m/%Y')}")
+
+    with c_hud3:
+        # Preparação dos dados do Radar
+        labels = list(st.session_state.data["stats"].keys())
+        values = list(st.session_state.data["stats"].values())
+        
+        # Ajuste dinâmico do limite do gráfico
+        max_stat = max(values)
+        radar_range = [0, max(50, max_stat + 10)] 
+
+        fig = go.Figure(data=go.Scatterpolar(
+            r=values,
+            theta=labels,
+            fill='toself',
+            name='Atributos',
+            line_color='#00d4ff',
+            fillcolor='rgba(0, 212, 255, 0.3)'
+        ))
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=radar_range, color="#444", gridcolor="#222"),
+                angularaxis=dict(color="#888", gridcolor="#222")
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="white",
+            height=230, # Aumentado para melhor visualização no PC
+            margin=dict(t=20, b=20, l=40, r=40)
+        )
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 st.divider()
 
