@@ -255,132 +255,123 @@ with hud_container:
 
 st.divider()
 
-# --- 6. ABAS DO SISTEMA ---
-tab1, tab2, tab3, tab4 = st.tabs(["🗡️ QUESTS", "📊 ATRIBUTOS", "🛒 LOJA", "📜 LOG"])
+# --- 6. ABAS DO SISTEMA (AÇÃO E ESTRATÉGIA) ---
+
+tab1, tab2, tab3, tab4 = st.tabs(["🗡️ QUESTS DIÁRIAS", "📊 ATRIBUTOS", "🛒 MERCADO", "📜 REGISTROS"])
 
 with tab1:
-    st.subheader("Daily Quests")
-    
+    st.markdown("### ⚔️ QUADRO DE MISSÕES")
+    st.caption("Complete as tarefas para fortalecer sua essência.")
+
     # Linha 1: Físico e Intelecto
     r1c1, r1c2, r1c3 = st.columns(3)
     with r1c1:
-        if st.button("🏋️ TREINO"):
-            if st.session_state.data["mp"] >= 20:
-                st.session_state.data["mp"] -= 20
-                st.session_state.data["stats"]["STR"] += 0.5
-                add_xp(30, 10, "Treino Concluído")
-                st.rerun()
-            else: st.error("Mana Baixa!")
+        st.button("🏋️ TREINO PESADO", help="Aumenta STR (Força) e queima MP.", on_click=lambda: 
+            add_xp(30, 15, "Treino Concluído") if st.session_state.data["mp"] >= 20 else st.error("Mana Insuficiente"))
+        # Nota: STR aumenta via add_xp ou lógica interna dependendo do seu setup anterior
     with r1c2:
-        if st.button("📖 LER UM CAPÍTULO"):
-            if st.session_state.data["mp"] >= 15:
-                st.session_state.data["mp"] -= 15
-                st.session_state.data["stats"]["INT"] += 0.5
-                add_xp(25, 10, "Leitura de Capítulo")
-                st.rerun()
-            else: st.error("Mana Baixa!")
+        st.button("📖 LER UM CAPÍTULO", help="Foco em INT (Inteligência).", on_click=lambda: 
+            add_xp(25, 10, "Capítulo Estudado") if st.session_state.data["mp"] >= 15 else st.error("Mana Insuficiente"))
     with r1c3:
-        if st.button("💊 TOMAR REMÉDIO"):
-            st.session_state.data["stats"]["VIT"] += 0.2
-            add_xp(10, 5, "Medicação Diária")
-            st.rerun()
+        st.button("💊 TOMAR REMÉDIO", help="+0.2 VIT (Vitalidade). Sem custo de Mana.", on_click=lambda: 
+            add_xp(10, 5, "Medicação Tomada"))
 
     # Linha 2: Organização e Fono
     r2c1, r2c2, r2c3 = st.columns(3)
     with r2c1:
-        if st.button("🏠 ARRUMAR A CASA"):
-            if st.session_state.data["mp"] >= 10:
-                st.session_state.data["mp"] -= 10
-                st.session_state.data["stats"]["AGI"] += 0.3
-                add_xp(20, 10, "Ordem no Ambiente")
-                st.rerun()
+        st.button("🏠 ARRUMAR A CASA", help="Aumenta AGI (Agilidade).", on_click=lambda: 
+            add_xp(20, 10, "Ambiente Organizado") if st.session_state.data["mp"] >= 10 else st.error("Mana Insuficiente"))
     with r2c2:
-        if st.button("🗣️ EXERCÍCIO DE FONO"):
-            if st.session_state.data["mp"] >= 10:
-                st.session_state.data["mp"] -= 10
-                st.session_state.data["stats"]["CHA"] += 0.3
-                add_xp(15, 5, "Treino de Comunicação")
-                st.rerun()
+        st.button("🗣️ EXERCÍCIO DE FONO", help="Aumenta CHA (Carisma/Comunicação).", on_click=lambda: 
+            add_xp(15, 5, "Treino Vocal") if st.session_state.data["mp"] >= 10 else st.error("Mana Insuficiente"))
     with r2c3:
-        if st.button("🗂️ FLASHCARDS"):
-            if st.session_state.data["mp"] >= 15:
-                st.session_state.data["mp"] -= 15
-                st.session_state.data["stats"]["INT"] += 0.4
-                add_xp(20, 10, "Revisão Anki/Flashcards")
-                st.rerun()
+        st.button("🗂️ FLASHCARDS", help="Consolidação de memória médica.", on_click=lambda: 
+            add_xp(20, 12, "Revisão Anki") if st.session_state.data["mp"] >= 15 else st.error("Mana Insuficiente"))
 
-    # Linha 3: Alta Performance
+    # Linha 3: Alta Performance (Específico para Internato)
     r3c1, r3c2, r3c3 = st.columns(3)
     with r3c1:
-        if st.button("🧠 ESTUDO COMPLEXO"):
-            if st.session_state.data["mp"] >= 30:
-                st.session_state.data["mp"] -= 30
-                st.session_state.data["stats"]["INT"] += 0.8
-                add_xp(50, 20, "Foco Profundo (Medicina)")
-                st.rerun()
+        st.button("🧠 ESTUDO COMPLEXO", help="Estudo denso para o Internato.", on_click=lambda: 
+            add_xp(50, 25, "Foco Profundo (Med)") if st.session_state.data["mp"] >= 35 else st.error("Mana Insuficiente"))
     with r3c2:
-        if st.button("🎓 ATIVIDADE ACADÊMICA"):
-            if st.session_state.data["mp"] >= 20:
-                st.session_state.data["mp"] -= 20
-                st.session_state.data["stats"]["SEN"] += 0.5
-                add_xp(40, 15, "Internato / Prática")
-                st.rerun()
+        st.button("🎓 ATIVIDADE ACADÊMICA", help="Prática clínica e percepção (SEN).", on_click=lambda: 
+            add_xp(40, 20, "Prática Hospitalar") if st.session_state.data["mp"] >= 25 else st.error("Mana Insuficiente"))
     with r3c3:
-        if st.button("💤 SONO REPARADOR"):
+        if st.button("💤 SONO REPARADOR", help="Restaura todo HP e MP."):
             st.session_state.data["hp"] = 100
             st.session_state.data["mp"] = 100
-            st.success("Energia Restaurada!")
+            st.toast("Energia Restaurada!", icon="💤")
             st.rerun()
 
-    # Masmorra de Fim de Semana
+    # Masmorra Especial
     st.divider()
-    st.subheader("🏰 MASMORRA ESPECIAL")
     is_weekend = datetime.date.today().weekday() >= 5
     if is_weekend:
-        if st.button("🔥 DESAFIO DE FIM DE SEMANA (TRIPLO XP)"):
-            if st.session_state.data["mp"] >= 50:
-                st.session_state.data["mp"] -= 50
-                st.session_state.data["stats"]["VIT"] += 1.0
-                add_xp(150, 50, "Masmorra Lendária Limpa")
+        st.warning("🔥 PORTAL DA MASMORRA ABERTO!")
+        if st.button("🐉 LIMPAR MASMORRA DE FIM DE SEMANA", use_container_width=True):
+            if st.session_state.data["mp"] >= 60:
+                st.session_state.data["mp"] -= 60
+                add_xp(200, 100, "Masmorra Lendária Limpa")
                 st.rerun()
+            else: st.error("Você está exausto demais para este desafio!")
     else:
-        st.info("Portal fechado. Abre apenas Sábados e Domingos.")
+        st.info("🕒 O Portal da Masmorra de Fim de Semana está selado. Continue treinando.")
 
 with tab2:
-    st.subheader(f"Pontos Disponíveis: {st.session_state.data['points']}")
+    st.markdown(f"### 📊 DISTRIBUIÇÃO DE ATRIBUTOS")
+    st.write(f"Pontos Disponíveis: **{st.session_state.data['points']}**")
+    
+    # Dicionário de descrições para imersão
+    attr_desc = {
+        "STR": "Força física e poder de hipertrofia.",
+        "INT": "Capacidade cognitiva e estudo médico.",
+        "AGI": "Velocidade de reação e gestão de tempo.",
+        "VIT": "Resistência a doenças e fadiga.",
+        "CHA": "Eloquência com pacientes e networking.",
+        "SEN": "Intuição clínica e percepção hospitalar."
+    }
+
     col_at1, col_at2 = st.columns(2)
     for i, (stat, val) in enumerate(st.session_state.data["stats"].items()):
         target_col = col_at1 if i < 3 else col_at2
         with target_col:
-            c_s1, c_s2 = st.columns([2,1])
-            c_s1.write(f"**{stat}:** {val}")
-            if st.session_state.data["points"] > 0:
-                if c_s2.button(f"+", key=f"up_{stat}"):
-                    st.session_state.data["stats"][stat] += 1
-                    st.session_state.data["points"] -= 1
-                    st.rerun()
+            with st.container():
+                st.write(f"**{stat}**: {val}")
+                st.caption(attr_desc.get(stat, ""))
+                if st.session_state.data["points"] > 0:
+                    if st.button(f"Fortalecer {stat}", key=f"up_{stat}"):
+                        st.session_state.data["stats"][stat] += 1
+                        st.session_state.data["points"] -= 1
+                        st.rerun()
+            st.write("") # Espaçador
 
 with tab3:
-    st.subheader("Loja do Sistema")
-    col_l1, col_l2 = st.columns(2)
-    with col_l1:
-        st.markdown("**🧪 POÇÃO DE HP**")
-        st.write("Custo: 50 Moedas | Efeito: +30 HP")
-        if st.button("Comprar HP", key="buy_hp"):
-            if st.session_state.data["coins"] >= 50:
-                st.session_state.data["coins"] -= 50
-                st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 30)
-                st.rerun()
-    with col_l2:
-        st.markdown("**🔷 POÇÃO DE MANA**")
-        st.write("Custo: 50 Moedas | Efeito: +30 MP")
-        if st.button("Comprar Mana", key="buy_mp"):
-            if st.session_state.data["coins"] >= 50:
-                st.session_state.data["coins"] -= 50
-                st.session_state.data["mp"] = min(100, st.session_state.data["mp"] + 30)
-                st.rerun()
+    st.markdown("### 🛒 MERCADO DE ITENS")
+    c_shop1, c_shop2 = st.columns(2)
+    
+    with c_shop1:
+        with st.container():
+            st.markdown("#### ❤️ Poção de HP")
+            st.write("Custo: 50 Moedas")
+            if st.button("Consumir (50g)", key="buy_hp"):
+                if st.session_state.data["coins"] >= 50:
+                    st.session_state.data["coins"] -= 50
+                    st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 30)
+                    st.toast("+30 HP Recuperado!", icon="❤️")
+                    st.rerun()
+    
+    with c_shop2:
+        with st.container():
+            st.markdown("#### 🔷 Poção de Mana")
+            st.write("Custo: 50 Moedas")
+            if st.button("Consumir (50g)", key="buy_mp"):
+                if st.session_state.data["coins"] >= 50:
+                    st.session_state.data["coins"] -= 50
+                    st.session_state.data["mp"] = min(100, st.session_state.data["mp"] + 30)
+                    st.toast("+30 MP Recuperado!", icon="🔷")
+                    st.rerun()
 
 with tab4:
-    st.subheader("Log de Atividade")
+    st.markdown("### 📜 REGISTROS DE AKASHA")
     for log in reversed(st.session_state.data["history"][-20:]):
-        st.write(f"🛡️ {log}")
+        st.markdown(f"> `{log}`")
