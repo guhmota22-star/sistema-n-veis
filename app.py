@@ -9,72 +9,93 @@ import streamlit as st
 # --- 1. CONFIGURAÇÃO DE INTERFACE & ESTILO ---
 st.set_page_config(page_title="SISTEMA: MONARCA", page_icon="🔱", layout="wide")
 
-# Importação da fonte Orbitron para o estilo Solo Leveling
+# Importação da fonte Orbitron e Estilo Avançado
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap');
 
-    /* Fundo e Texto Global */
+    /* 1. Estilo Global e Fundo com Vinheta */
     .stApp { 
-        background-color: #0a0a0b; 
+        background: radial-gradient(circle, #0f1218 0%, #050505 100%);
         color: #e0e0e0; 
         font-family: 'Orbitron', sans-serif; 
     }
 
-    /* Títulos com efeito de brilho Neon */
-    h1, h2, h3 { 
-        color: #00d4ff; 
-        text-shadow: 0 0 10px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.2);
-        text-transform: uppercase; 
-        letter-spacing: 2px;
+    /* 2. Scrollbar Estilo Neon */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #050505; }
+    ::-webkit-scrollbar-thumb { 
+        background: #00d4ff; 
+        border-radius: 10px;
+        box-shadow: 0 0 10px #00d4ff;
     }
 
-    /* Botões Estilo HUD */
+    /* 3. Títulos com Brilho Pulsante */
+    h1, h2, h3 { 
+        color: #00d4ff; 
+        text-shadow: 0 0 12px rgba(0, 212, 255, 0.6);
+        text-transform: uppercase; 
+        letter-spacing: 3px;
+        font-weight: 700;
+    }
+
+    /* 4. Customização Épica das Abas (Tabs) */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        background-color: transparent;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        background-color: rgba(0, 212, 255, 0.05);
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        padding: 10px 25px;
+        border-radius: 5px 5px 0px 0px;
+        color: #888;
+        transition: all 0.3s;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: rgba(0, 212, 255, 0.15) !important;
+        border: 1px solid #00d4ff !important;
+        color: #00d4ff !important;
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+    }
+
+    /* 5. Botões de Ação com Micro-Interações */
     .stButton>button { 
-        background-color: rgba(0, 212, 255, 0.05); 
+        background: linear-gradient(90deg, rgba(0,212,255,0.1) 0%, rgba(0,212,255,0.02) 100%);
         border: 1px solid #00d4ff; 
         color: #00d4ff; 
-        width: 100%; 
-        border-radius: 5px;
-        transition: all 0.3s ease-in-out;
-        font-weight: bold;
-        text-transform: uppercase;
+        border-radius: 4px;
+        transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        font-size: 14px;
     }
 
     .stButton>button:hover { 
-        background-color: #00d4ff !important; 
-        color: #000000 !important; 
-        box-shadow: 0 0 15px #00d4ff; 
-        transform: scale(1.02);
+        box-shadow: 0 0 20px rgba(0, 212, 255, 0.4); 
+        transform: translateY(-2px);
+        border-color: #ffffff;
     }
 
-    /* Classes Dinâmicas de Rank (Preparadas para o futuro) */
-    .rank-e { color: #9e9e9e; text-shadow: 0 0 5px #9e9e9e; } /* Cinza */
-    .rank-d { color: #4caf50; text-shadow: 0 0 5px #4caf50; } /* Verde */
-    .rank-c { color: #2196f3; text-shadow: 0 0 5px #2196f3; } /* Azul */
-    .rank-s { color: #ffcc00; text-shadow: 0 0 10px #ffcc00; } /* Dourado */
-
-    /* Cores das Labels de Status */
-    .label-hp { color: #ff4b4b; font-weight: bold; text-shadow: 0 0 5px rgba(255, 75, 75, 0.4); }
-    .label-mp { color: #00d4ff; font-weight: bold; text-shadow: 0 0 5px rgba(0, 212, 255, 0.4); }
-    .label-xp { color: #ffaa00; font-weight: bold; }
-    .label-coins { color: #ffee00; font-weight: bold; }
-
-    /* Customização das Barras de Progresso */
-    div[st-ui="stProgress"] > div > div > div {
-        background-color: #00d4ff; /* Cor padrão, será alterada via código depois */
-    }
-    
-    /* Container para o HUD parecer uma janela flutuante */
+    /* 6. Containers de HUD e Atributos */
     .hud-container {
-        border: 1px solid rgba(0, 212, 255, 0.2);
+        border-left: 4px solid #00d4ff;
+        background: rgba(255, 255, 255, 0.03);
         padding: 20px;
-        border-radius: 10px;
-        background-color: rgba(255, 255, 255, 0.02);
+        border-radius: 0 10px 10px 0;
+        margin-bottom: 15px;
     }
+
+    /* 7. Cores de Status e Ranks */
+    .label-hp { color: #ff4b4b; text-shadow: 0 0 8px rgba(255, 75, 75, 0.5); font-weight: bold; }
+    .label-mp { color: #00d4ff; text-shadow: 0 0 8px rgba(0, 212, 255, 0.5); font-weight: bold; }
+    .label-xp { color: #ffaa00; }
+    .label-coins { color: #ffee00; }
+
+    .rank-e { color: #9e9e9e; } .rank-d { color: #4caf50; } 
+    .rank-c { color: #2196f3; } .rank-s { color: #ffcc00; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
-
 # --- 2. GESTÃO DE DADOS (CAMINHO A: MANUAL) ---
 def get_initial_data():
     return {
