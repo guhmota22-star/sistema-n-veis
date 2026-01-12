@@ -4,8 +4,6 @@ import datetime
 import pandas as pd
 import plotly.graph_objects as go
 
-import streamlit as st
-
 # --- 1. CONFIGURAÇÃO DE INTERFACE & ESTILO ---
 st.set_page_config(page_title="SISTEMA: MONARCA", page_icon="🔱", layout="wide")
 
@@ -96,16 +94,53 @@ st.markdown("""
     .rank-c { color: #2196f3; } .rank-s { color: #ffcc00; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
-# --- 2. GESTÃO DE DADOS (CAMINHO A: MANUAL) ---
+# --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (AKASHA SYSTEM) ---
+
+def get_rank_info(level):
+    """Define a aura e o prestígio do Monarca baseado no nível atual"""
+    if level < 10: 
+        return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)"}
+    if level < 20: 
+        return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)"}
+    if level < 30: 
+        return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)"}
+    if level < 40: 
+        return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)"}
+    if level < 50: 
+        return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)"}
+    return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)"}
+
 def get_initial_data():
+    """Gera o estado inicial de um Caçador Nível 1"""
     return {
-        "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
-        "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
+        "lvl": 1,
+        "xp": 0,
+        "hp": 100,
+        "mp": 100,
+        "coins": 0,
+        "points": 0,
+        "last_access": str(datetime.date.today()), # Rastreia o dia do último save
+        "stats": {
+            "STR": 10, "INT": 10, "AGI": 10, 
+            "VIT": 10, "CHA": 10, "SEN": 10
+        },
         "history": []
     }
 
+# Inicialização segura no Session State
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
+
+# Recupera informações do Rank atual para uso global no HUD e no Estilo
+rank_info = get_rank_info(st.session_state.data["lvl"])
+
+# --- LÓGICA DE REGENERAÇÃO TEMPORAL (EXCLUSIVO PC) ---
+hoje = str(datetime.date.today())
+if st.session_state.data.get("last_access") != hoje:
+    # Como você usa no PC e tem o internato, o sistema restaura 100% de Mana por dia
+    st.session_state.data["mp"] = 100 
+    st.session_state.data["last_access"] = hoje
+    st.toast("☀️ Um novo ciclo começou. Suas energias foram restauradas!", icon="🔷")
 
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA ---
 with st.sidebar:
