@@ -94,36 +94,28 @@ st.markdown("""
     .rank-c { color: #2196f3; } .rank-s { color: #ffcc00; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
-# --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (AKASHA SYSTEM) ---
+# --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (SISTEMA DE AKASHA) ---
 
 def get_rank_info(level):
-    """Define a aura e o prestígio do Monarca baseado no nível atual"""
+    """Define a aura, a cor e o Título do Monarca baseado no nível"""
     if level < 10: 
-        return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)"}
+        return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
     if level < 20: 
-        return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)"}
+        return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
     if level < 30: 
-        return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)"}
+        return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)", "title": "Residente Aspirante"}
     if level < 40: 
-        return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)"}
+        return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)", "title": "Mestre da Clínica"}
     if level < 50: 
-        return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)"}
-    return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)"}
+        return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
+    return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano da Medicina"}
 
 def get_initial_data():
     """Gera o estado inicial de um Caçador Nível 1"""
     return {
-        "lvl": 1,
-        "xp": 0,
-        "hp": 100,
-        "mp": 100,
-        "coins": 0,
-        "points": 0,
-        "last_access": str(datetime.date.today()), # Rastreia o dia do último save
-        "stats": {
-            "STR": 10, "INT": 10, "AGI": 10, 
-            "VIT": 10, "CHA": 10, "SEN": 10
-        },
+        "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
+        "last_access": str(datetime.date.today()),
+        "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
         "history": []
     }
 
@@ -131,17 +123,28 @@ def get_initial_data():
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 
-# Recupera informações do Rank atual para uso global no HUD e no Estilo
+# Recupera informações do Rank e Título atual
 rank_info = get_rank_info(st.session_state.data["lvl"])
+
+# --- INJEÇÃO DE AURA DINÂMICA (A MÁGICA DAS CORES) ---
+# Este bloco substitui as cores do CSS original pela cor do seu Rank atual!
+st.markdown(f"""
+    <style>
+    h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}
+    .stButton>button {{ border-color: {rank_info['color']} !important; color: {rank_info['color']} !important; }}
+    .stButton>button:hover {{ background-color: {rank_info['color']} !important; color: black !important; box-shadow: 0 0 20px {rank_info['color']} !important; }}
+    div[st-ui="stProgress"] > div > div > div {{ background-color: {rank_info['color']} !important; }}
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- LÓGICA DE REGENERAÇÃO TEMPORAL (EXCLUSIVO PC) ---
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
-    # Como você usa no PC e tem o internato, o sistema restaura 100% de Mana por dia
+    # Restaura 100% de Mana e 20% de HP por novo ciclo em Diamantina
     st.session_state.data["mp"] = 100 
+    st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 20)
     st.session_state.data["last_access"] = hoje
-    st.toast("☀️ Um novo ciclo começou. Suas energias foram restauradas!", icon="🔷")
-
+    st.toast(f"☀️ Ciclo Resetado: Mana 100% | HP +20. Bom plantão, {rank_info['title']}!", icon="🔷")
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA ---
 with st.sidebar:
     st.markdown("### 💾 REGISTRO DE AKASHA")
