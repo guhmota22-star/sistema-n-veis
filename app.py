@@ -145,47 +145,64 @@ if st.session_state.data.get("last_access") != hoje:
     st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 20)
     st.session_state.data["last_access"] = hoje
     st.toast(f"☀️ Ciclo Resetado: Mana 100% | HP +20. Bom plantão, {rank_info['title']}!", icon="🔷")
-# --- 3. BARRA LATERAL: REGISTRO DE AKASHA ---
+# --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
+
 with st.sidebar:
-    st.markdown("### 💾 REGISTRO DE AKASHA")
-    st.caption("Guarde sua essência antes de fechar o sistema.")
+    # 1. Cartão de Identidade Visual (Dinâmico por Rank)
+    st.markdown(f"""
+        <div style="
+            border: 2px solid {rank_info['color']};
+            padding: 15px;
+            border-radius: 10px;
+            background-color: rgba(0,0,0,0.3);
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px {rank_info['glow']};
+        ">
+            <h2 style="color: {rank_info['color']}; margin: 0;">RANK {rank_info['name']}</h2>
+            <p style="color: #e0e0e0; font-size: 14px; margin: 5px 0;">{rank_info['title']}</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"<h3 style='color: {rank_info['color']};'>💾 MEMORY CARD</h3>", unsafe_allow_html=True)
+    st.caption("Salve seu progresso antes de fechar o portal.")
     
-    # Exportar Save
-    # 'indent=4' torna o arquivo JSON legível para humanos no PC
+    # Exportar Save (Download do JSON identado para PC)
     data_string = json.dumps(st.session_state.data, indent=4)
-    
     st.download_button(
-        label="📥 DESCARREGAR SAVE (JSON)", 
-        data=data_string, 
-        file_name=f"monarca_save_{datetime.date.today()}.json", 
+        label="📥 DESCARREGAR SAVE",
+        data=data_string,
+        file_name=f"monarca_save_{datetime.date.today()}.json",
         mime="application/json",
-        use_container_width=True # Otimizado para a barra lateral do PC
+        use_container_width=True
     )
     
     st.divider()
     
     # Importar Save
-    st.markdown("### 📤 CARREGAR SAVE")
+    st.markdown("### 📤 RESTAURAR ESSÊNCIA")
     uploaded_file = st.file_uploader("Upload do fragmento .json", type="json")
     
     if uploaded_file is not None:
         try:
             temp_data = json.load(uploaded_file)
-            
-            # Validação: Verifica se o arquivo tem os campos essenciais do Sistema
             if "lvl" in temp_data and "stats" in temp_data:
                 st.session_state.data = temp_data
-                st.success("Sincronização com Akasha Concluída!")
+                st.success("Sincronização Concluída!")
                 st.rerun()
             else:
-                st.error("Assinatura Inválida! Este fragmento não pertence ao Sistema.")
-                
+                st.error("Assinatura Inválida!")
         except Exception as e:
-            st.error(f"Erro ao restaurar essência: {e}")
+            st.error(f"Erro na restauração: {e}")
 
-    # Espaço extra para estética no PC
+    # Espaço Inferior Estilizado
     st.sidebar.markdown("---")
-    st.sidebar.info("Status: Sistema de Persistência Manual Ativo.")
+    st.sidebar.markdown(f"""
+        <div style="text-align: center; opacity: 0.6; font-size: 12px;">
+            SISTEMA OPERACIONAL: MONARCA v2.0<br>
+            AURA ATUAL: <span style="color:{rank_info['color']}">{rank_info['name']}</span>
+        </div>
+    """, unsafe_allow_html=True)
 
 # --- 4. LÓGICA DE PROGRESSÃO E RANKING ---
 
