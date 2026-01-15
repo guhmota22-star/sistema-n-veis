@@ -261,79 +261,61 @@ def add_xp(amount, coins, reason):
     if len(st.session_state.data["history"]) > 50:
         st.session_state.data["history"].pop(0)
         
-# --- 5. HUD DO MONARCA ---
+# --- 5. HUD DO MONARCA (VISUALIZADOR DE STATUS) ---
 
-# Título Principal com efeito de brilho
-st.markdown(f"<h1>🔱 JANELA DE STATUS: {st.session_state.data.get('name', 'GUH MOTA')}</h1>", unsafe_allow_html=True)
+# Título com a cor dinâmica do Rank atual
+st.markdown(f"""
+    <h1 style='color: {rank_info['color']}; text-shadow: 0 0 15px {rank_info['glow']}; text-align: center;'>
+        🔱 JANELA DE STATUS: {st.session_state.data.get('name', 'GUH MOTA')}
+    </h1>
+""", unsafe_allow_html=True)
 
-# Container principal para agrupar o HUD
-hud_container = st.container()
-
-with hud_container:
-    c_hud1, c_hud2, c_hud3 = st.columns([1.2, 1, 1.2]) # Ajuste de proporção para PC
+# Container do HUD
+with st.container():
+    c_hud1, c_hud2, c_hud3 = st.columns([1.2, 1, 1.2])
     
     with c_hud1:
-        # Recupera o Rank dinamicamente da Parte 4
-        lvl = st.session_state.data['lvl']
-        rank = get_rank(lvl) # Função definida no bloco anterior
+        # Aqui usamos o rank_info que já foi definido na Parte 2
+        st.markdown(f"### <span style='color:{rank_info['color']}'>RANK {rank_info['name']}</span> | NÍVEL {st.session_state.data['lvl']}", unsafe_allow_html=True)
+        st.caption(f"🛡️ Título: {rank_info['title']}")
         
-        st.markdown(f"### <span class='rank-{rank.lower()}'>RANK {rank}</span> | NÍVEL {lvl}", unsafe_allow_html=True)
+        # Status de Vida e Energia
+        st.markdown(f"<span class='label-hp'>❤️ HP: {st.session_state.data['hp']}/100</span>", unsafe_allow_html=True)
+        st.progress(st.session_state.data['hp'] / 100)
         
-        # Status de HP (Vida)
-        hp_val = st.session_state.data['hp']
-        st.markdown(f"<span class='label-hp'>❤️ HP: {hp_val}/100</span>", unsafe_allow_html=True)
-        st.progress(hp_val / 100)
-        
-        # Status de MP (Mana/Energia)
-        mp_val = st.session_state.data['mp']
-        st.markdown(f"<span class='label-mp'>🔷 MP: {mp_val}/100</span>", unsafe_allow_html=True)
-        st.progress(mp_val / 100)
+        st.markdown(f"<span class='label-mp'>🔷 MP: {st.session_state.data['mp']}/100</span>", unsafe_allow_html=True)
+        st.progress(st.session_state.data['mp'] / 100)
 
     with c_hud2:
         st.markdown("### RECOMPENSAS")
-        
-        # Cálculo de XP necessário para exibição
         xp_atual = st.session_state.data['xp']
-        xp_needed = int(100 * (lvl ** 1.5))
-        percent_xp = min(xp_atual / xp_needed, 1.0)
+        xp_needed = int(100 * (st.session_state.data['lvl'] ** 1.5))
         
-        st.markdown(f"<span class='label-xp'>✨ XP: {xp_atual} / {xp_needed}</span>", unsafe_allow_html=True)
-        st.progress(percent_xp)
+        st.markdown(f"<span class='label-xp'>✨ XP: {xp_atual}/{xp_needed}</span>", unsafe_allow_html=True)
+        st.progress(min(xp_atual / xp_needed, 1.0))
         
         st.markdown(f"<span class='label-coins'>💰 MOEDAS: {st.session_state.data['coins']}</span>", unsafe_allow_html=True)
-        
-        # Indicador de salvamento offline para PC
-        st.caption("📂 Armazenamento: Local (Offline)")
-        st.caption(f"📅 Ciclo Atual: {datetime.date.today().strftime('%d/%m/%Y')}")
+        st.caption("Modo Offline: Registro Local")
 
     with c_hud3:
-        # Preparação dos dados do Radar
+        # Gráfico de Radar Atualizado
         labels = list(st.session_state.data["stats"].keys())
         values = list(st.session_state.data["stats"].values())
         
-        # Ajuste dinâmico do limite do gráfico
-        max_stat = max(values)
-        radar_range = [0, max(50, max_stat + 10)] 
-
         fig = go.Figure(data=go.Scatterpolar(
             r=values,
             theta=labels,
             fill='toself',
-            name='Atributos',
-            line_color='#00d4ff',
-            fillcolor='rgba(0, 212, 255, 0.3)'
+            line_color=rank_info['color'], # Linha na cor do Rank!
+            fillcolor=rank_info['glow']     # Preenchimento com brilho do Rank!
         ))
-
+        
         fig.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True, range=radar_range, color="#444", gridcolor="#222"),
-                angularaxis=dict(color="#888", gridcolor="#222")
-            ),
+            polar=dict(radialaxis=dict(visible=False, range=[0, 50])),
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
             font_color="white",
-            height=230, # Aumentado para melhor visualização no PC
-            margin=dict(t=20, b=20, l=40, r=40)
+            height=200,
+            margin=dict(t=10, b=10, l=10, r=10)
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
