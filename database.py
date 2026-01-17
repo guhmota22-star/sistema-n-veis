@@ -11,7 +11,7 @@ EQUIPMENT_DB = {
     "Galão de Hidratação": {"slot": "accessory", "bonus_vit": 3, "desc": "+3 Vitalidade (Hidratação)"}
 }
 
-# --- 2. QUADRO DE MISSÕES (Para nunca mais sumirem!) ---
+# --- 2. QUADRO DE MISSÕES ---
 QUESTS_DB = [
     {"id": "q1", "label": "🏋️ TREINO", "cost": 20, "xp": 30, "coins": 15, "stats": {"STR": 0.5}, "msg": "Treino Concluído"},
     {"id": "q2", "label": "📖 LER CAPÍTULO", "cost": 15, "xp": 25, "coins": 10, "stats": {"INT": 0.5}, "msg": "Leitura Concluída"},
@@ -32,15 +32,20 @@ def get_rank_info(level):
     if level < 50: return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
     return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano da Medicina"}
 
-# --- 4. CÁLCULO DE ATRIBUTOS ---
+# --- 4. CÁLCULO DE STATUS COM AUTO-REPARO ---
 def get_total_stats(data):
-    stats_base = data.get("stats", {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10}).copy()
-    equipped = data.get("equipped", {})
+    # Garante que as chaves novas existam (Resolve image_e5675a.png)
+    if "stats" not in data: data["stats"] = {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10}
+    if "equipped" not in data: data["equipped"] = {"head": None, "body": None, "hands": None, "accessory": None}
+    
+    stats_base = data["stats"].copy()
     hp_extra = 0
-    for slot, item_name in equipped.items():
+    for slot, item_name in data["equipped"].items():
         if item_name in EQUIPMENT_DB:
             item = EQUIPMENT_DB[item_name]
+            # Soma bônus se existirem no banco
             for stat in stats_base:
-                stats_base[stat] += item.get(f"bonus_{stat.lower()}", 0)
+                key = f"bonus_{stat.lower()}"
+                stats_base[stat] += item.get(key, 0)
             hp_extra += item.get("hp_max", 0)
     return stats_base, hp_extra
