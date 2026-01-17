@@ -172,6 +172,27 @@ if st.session_state.data.get("last_access") != hoje:
     st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 20)
     st.session_state.data["last_access"] = hoje
     st.toast(f"☀️ Bom plantão, {rank_info['title']}! Energias restauradas.", icon="🔷")
+
+def get_total_stats():
+    # .get() evita o KeyError se a chave não existir
+    stats_base = st.session_state.data.get("stats", {}).copy()
+    equipped = st.session_state.data.get("equipped", {})
+    hp_extra = 0
+    
+    # Se por algum motivo as chaves sumirem, o código não quebra
+    if not stats_base:
+        return {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10}, 0
+
+    for slot, item_name in equipped.items():
+        if item_name in EQUIPMENT_DB:
+            item = EQUIPMENT_DB[item_name]
+            stats_base["STR"] += item.get("bonus_str", 0)
+            stats_base["INT"] += item.get("bonus_int", 0)
+            stats_base["VIT"] += item.get("bonus_vit", 0)
+            stats_base["SEN"] += item.get("bonus_sen", 0)
+            hp_extra += item.get("hp_max", 0)
+            
+    return stats_base, hp_extra
     
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
 
@@ -231,6 +252,26 @@ with st.sidebar:
             AURA ATUAL: <span style="color:{rank_info['color']}">{rank_info['name']}</span>
         </div>
     """, unsafe_allow_html=True)
+    # Lógica de carregamento blindada
+    if uploaded_file is not None:
+        try:
+            temp_data = json.load(uploaded_file)
+            
+            # MIGRATION LOGIC: Se o save for antigo, adicionamos os novos sistemas
+            if "inventory" not in temp_data:
+                temp_data["inventory"] = []
+            if "equipped" not in temp_data:
+                temp_data["equipped"] = {"head": None, "body": None, "hands": None, "accessory": None}
+            
+            # Validação padrão
+            if "lvl" in temp_data and "stats" in temp_data:
+                st.session_state.data = temp_data
+                st.success("Sincronização com Akasha Concluída! Save antigo atualizado.")
+                st.rerun()
+            else:
+                st.error("Assinatura Inválida!")
+        except Exception as e:
+            st.error(f"Erro na restauração: {e}")
 
 # --- 4. LÓGICA DE PROGRESSÃO E EVOLUÇÃO ---
 
