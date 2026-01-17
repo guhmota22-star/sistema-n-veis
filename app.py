@@ -94,7 +94,18 @@ st.markdown("""
     .rank-c { color: #2196f3; } .rank-s { color: #ffcc00; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
-# --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (SISTEMA DE AKASHA) ---
+# --- 2. GESTÃO DE DADOS E ARSENAL (SISTEMA DE AKASHA) ---
+
+# Banco de Dados de Equipamentos (Grounding: Realidade do Interno/Atleta)
+EQUIPMENT_DB = {
+    "Assinatura de Banco de Questões": {"slot": "head", "bonus_int": 2, "xp_mult": 0.15, "desc": "+15% XP em Estudos"},
+    "Tênis de Plantão": {"slot": "body", "hp_max": 20, "desc": "+20 HP Máximo"},
+    "Estetoscópio de Elite": {"slot": "hands", "bonus_sen": 5, "desc": "+5 Percepção Clínica"},
+    "Cinto de LPO / Straps": {"slot": "hands", "bonus_str": 5, "desc": "+5 Força nos Treinos"},
+    "Manual de Condutas": {"slot": "accessory", "mp_reduction": 5, "desc": "-5 MP de custo em INT"},
+    "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"},
+    "Galão de Hidratação": {"slot": "accessory", "bonus_vit": 3, "desc": "+3 Vitalidade (Hidratação)"}
+}
 
 def get_rank_info(level):
     """Define a aura, a cor e o Título do Monarca baseado no nível"""
@@ -111,23 +122,40 @@ def get_rank_info(level):
     return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano da Medicina"}
 
 def get_initial_data():
-    """Gera o estado inicial de um Caçador Nível 1"""
+    """Gera o estado inicial de um Caçador com Inventário Vazio"""
     return {
         "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
         "last_access": str(datetime.date.today()),
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
+        "inventory": [],  # Lista de nomes dos itens comprados
+        "equipped": {"head": None, "body": None, "hands": None, "accessory": None}, # Itens ativos
         "history": []
     }
 
-# Inicialização segura no Session State
+# Inicialização segura
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 
-# Recupera informações do Rank e Título atual
+# Função para calcular Atributos Totais (Base + Equipamentos)
+def get_total_stats():
+    total = st.session_state.data["stats"].copy()
+    hp_extra = 0
+    equipped = st.session_state.data["equipped"]
+    
+    for slot, item_name in equipped.items():
+        if item_name in EQUIPMENT_DB:
+            item = EQUIPMENT_DB[item_name]
+            total["STR"] += item.get("bonus_str", 0)
+            total["INT"] += item.get("bonus_int", 0)
+            total["VIT"] += item.get("bonus_vit", 0)
+            total["SEN"] += item.get("bonus_sen", 0)
+            hp_extra += item.get("hp_max", 0)
+    return total, hp_extra
+
+# Carrega Rank e Aura
 rank_info = get_rank_info(st.session_state.data["lvl"])
 
-# --- INJEÇÃO DE AURA DINÂMICA (A MÁGICA DAS CORES) ---
-# Este bloco substitui as cores do CSS original pela cor do seu Rank atual!
+# Injeção de Estilo (Aura Dinâmica)
 st.markdown(f"""
     <style>
     h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}
@@ -137,14 +165,14 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- LÓGICA DE REGENERAÇÃO TEMPORAL (EXCLUSIVO PC) ---
+# Lógica de Tempo e Regeneração
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
-    # Restaura 100% de Mana e 20% de HP por novo ciclo em Diamantina
     st.session_state.data["mp"] = 100 
     st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 20)
     st.session_state.data["last_access"] = hoje
-    st.toast(f"☀️ Ciclo Resetado: Mana 100% | HP +20. Bom plantão, {rank_info['title']}!", icon="🔷")
+    st.toast(f"☀️ Bom plantão, {rank_info['title']}! Energias restauradas.", icon="🔷")
+    
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
 
 with st.sidebar:
