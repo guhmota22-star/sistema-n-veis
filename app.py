@@ -323,121 +323,121 @@ st.divider()
 
 # --- 6. ABAS DO SISTEMA (AÇÃO E ESTRATÉGIA) ---
 
+# Estilização extra para os cards de missão no PC
+st.markdown(f"""
+    <style>
+    .quest-card {{
+        border: 1px solid {rank_info['color']};
+        background-color: rgba(0,0,0,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 10px;
+        transition: 0.3s;
+    }}
+    .quest-card:hover {{
+        background-color: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 0 10px {rank_info['glow']};
+    }}
+    </style>
+""", unsafe_allow_html=True)
+
 tab1, tab2, tab3, tab4 = st.tabs(["🗡️ QUESTS DIÁRIAS", "📊 ATRIBUTOS", "🛒 MERCADO", "📜 REGISTROS"])
 
 with tab1:
-    st.markdown("### ⚔️ QUADRO DE MISSÕES")
-    st.caption("Complete as tarefas para fortalecer sua essência.")
+    st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
+    
+    # Função auxiliar para missões com verificação de Mana
+    def run_quest(cost, str_gain, int_gain, agi_gain, vit_gain, cha_gain, sen_gain, xp, coins, msg):
+        if st.session_state.data["mp"] >= cost:
+            st.session_state.data["mp"] -= cost
+            st.session_state.data["stats"]["STR"] += str_gain
+            st.session_state.data["stats"]["INT"] += int_gain
+            st.session_state.data["stats"]["AGI"] += agi_gain
+            st.session_state.data["stats"]["VIT"] += vit_gain
+            st.session_state.data["stats"]["CHA"] += cha_gain
+            st.session_state.data["stats"]["SEN"] += sen_gain
+            add_xp(xp, coins, msg)
+            st.rerun()
+        else:
+            st.error("Mana Insuficiente! Descanse ou compre uma poção.")
 
-    # Linha 1: Físico e Intelecto
+    # Linha 1: Desenvolvimento Físico e Mental
     r1c1, r1c2, r1c3 = st.columns(3)
     with r1c1:
-        st.button("🏋️ TREINO PESADO", help="Aumenta STR (Força) e queima MP.", on_click=lambda: 
-            add_xp(30, 15, "Treino Concluído") if st.session_state.data["mp"] >= 20 else st.error("Mana Insuficiente"))
-        # Nota: STR aumenta via add_xp ou lógica interna dependendo do seu setup anterior
+        with st.container():
+            st.markdown("<div class='quest-card'>🏋️ TREINO PESADO<br><small>Custo: 20 MP | +0.5 STR</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_str", use_container_width=True):
+                run_quest(20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
     with r1c2:
-        st.button("📖 LER UM CAPÍTULO", help="Foco em INT (Inteligência).", on_click=lambda: 
-            add_xp(25, 10, "Capítulo Estudado") if st.session_state.data["mp"] >= 15 else st.error("Mana Insuficiente"))
+        with st.container():
+            st.markdown("<div class='quest-card'>📖 ESTUDO DE CASO<br><small>Custo: 15 MP | +0.5 INT</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_int", use_container_width=True):
+                run_quest(15, 0, 0.5, 0, 0, 0, 0, 25, 12, "Capítulo de Clínica Médica")
     with r1c3:
-        st.button("💊 TOMAR REMÉDIO", help="+0.2 VIT (Vitalidade). Sem custo de Mana.", on_click=lambda: 
-            add_xp(10, 5, "Medicação Tomada"))
+        with st.container():
+            st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>Custo: 0 MP | +0.2 VIT</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_vit", use_container_width=True):
+                run_quest(0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
 
-    # Linha 2: Organização e Fono
+    # Linha 2: Carreira e Organização
     r2c1, r2c2, r2c3 = st.columns(3)
     with r2c1:
-        st.button("🏠 ARRUMAR A CASA", help="Aumenta AGI (Agilidade).", on_click=lambda: 
-            add_xp(20, 10, "Ambiente Organizado") if st.session_state.data["mp"] >= 10 else st.error("Mana Insuficiente"))
+        with st.container():
+            st.markdown("<div class='quest-card'>🏠 ORGANIZAR BASE<br><small>Custo: 10 MP | +0.3 AGI</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_agi", use_container_width=True):
+                run_quest(10, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização do Ambiente")
     with r2c2:
-        st.button("🗣️ EXERCÍCIO DE FONO", help="Aumenta CHA (Carisma/Comunicação).", on_click=lambda: 
-            add_xp(15, 5, "Treino Vocal") if st.session_state.data["mp"] >= 10 else st.error("Mana Insuficiente"))
+        with st.container():
+            st.markdown("<div class='quest-card'>🗣️ COMUNICAÇÃO<br><small>Custo: 10 MP | +0.3 CHA</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_cha", use_container_width=True):
+                run_quest(10, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino de Eloquência")
     with r2c3:
-        st.button("🗂️ FLASHCARDS", help="Consolidação de memória médica.", on_click=lambda: 
-            add_xp(20, 12, "Revisão Anki") if st.session_state.data["mp"] >= 15 else st.error("Mana Insuficiente"))
+        with st.container():
+            st.markdown("<div class='quest-card'>🎓 PRÁTICA MÉDICA<br><small>Custo: 25 MP | +0.6 SEN</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_sen", use_container_width=True):
+                run_quest(25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato / Plantão")
 
-    # Linha 3: Alta Performance (Específico para Internato)
-    r3c1, r3c2, r3c3 = st.columns(3)
-    with r3c1:
-        st.button("🧠 ESTUDO COMPLEXO", help="Estudo denso para o Internato.", on_click=lambda: 
-            add_xp(50, 25, "Foco Profundo (Med)") if st.session_state.data["mp"] >= 35 else st.error("Mana Insuficiente"))
-    with r3c2:
-        st.button("🎓 ATIVIDADE ACADÊMICA", help="Prática clínica e percepção (SEN).", on_click=lambda: 
-            add_xp(40, 20, "Prática Hospitalar") if st.session_state.data["mp"] >= 25 else st.error("Mana Insuficiente"))
-    with r3c3:
-        if st.button("💤 SONO REPARADOR", help="Restaura todo HP e MP."):
-            st.session_state.data["hp"] = 100
-            st.session_state.data["mp"] = 100
-            st.toast("Energia Restaurada!", icon="💤")
-            st.rerun()
-
-    # Masmorra Especial
+    # Recarregamento
     st.divider()
-    is_weekend = datetime.date.today().weekday() >= 5
-    if is_weekend:
-        st.warning("🔥 PORTAL DA MASMORRA ABERTO!")
-        if st.button("🐉 LIMPAR MASMORRA DE FIM DE SEMANA", use_container_width=True):
-            if st.session_state.data["mp"] >= 60:
-                st.session_state.data["mp"] -= 60
-                add_xp(200, 100, "Masmorra Lendária Limpa")
-                st.rerun()
-            else: st.error("Você está exausto demais para este desafio!")
-    else:
-        st.info("🕒 O Portal da Masmorra de Fim de Semana está selado. Continue treinando.")
+    if st.button("💤 SONO REPARADOR", help="Restaura Status Vitais", use_container_width=True):
+        st.session_state.data["hp"] = 100
+        st.session_state.data["mp"] = 100
+        st.toast("Status Restaurados. Bom descanso, Monarca!", icon="💤")
+        st.rerun()
 
 with tab2:
-    st.markdown(f"### 📊 DISTRIBUIÇÃO DE ATRIBUTOS")
-    st.write(f"Pontos Disponíveis: **{st.session_state.data['points']}**")
-    
-    # Dicionário de descrições para imersão
-    attr_desc = {
-        "STR": "Força física e poder de hipertrofia.",
-        "INT": "Capacidade cognitiva e estudo médico.",
-        "AGI": "Velocidade de reação e gestão de tempo.",
-        "VIT": "Resistência a doenças e fadiga.",
-        "CHA": "Eloquência com pacientes e networking.",
-        "SEN": "Intuição clínica e percepção hospitalar."
-    }
-
+    st.markdown(f"### 📊 PONTOS DE ATRIBUTO: {st.session_state.data['points']}")
     col_at1, col_at2 = st.columns(2)
     for i, (stat, val) in enumerate(st.session_state.data["stats"].items()):
         target_col = col_at1 if i < 3 else col_at2
         with target_col:
-            with st.container():
-                st.write(f"**{stat}**: {val}")
-                st.caption(attr_desc.get(stat, ""))
-                if st.session_state.data["points"] > 0:
-                    if st.button(f"Fortalecer {stat}", key=f"up_{stat}"):
-                        st.session_state.data["stats"][stat] += 1
-                        st.session_state.data["points"] -= 1
-                        st.rerun()
-            st.write("") # Espaçador
+            st.write(f"**{stat}**: {val}")
+            if st.session_state.data["points"] > 0:
+                if st.button(f"INVESTIR EM {stat}", key=f"up_{stat}"):
+                    st.session_state.data["stats"][stat] += 1
+                    st.session_state.data["points"] -= 1
+                    st.rerun()
 
 with tab3:
-    st.markdown("### 🛒 MERCADO DE ITENS")
+    st.markdown("### 🛒 LOJA DO SISTEMA")
     c_shop1, c_shop2 = st.columns(2)
-    
     with c_shop1:
-        with st.container():
-            st.markdown("#### ❤️ Poção de HP")
-            st.write("Custo: 50 Moedas")
-            if st.button("Consumir (50g)", key="buy_hp"):
-                if st.session_state.data["coins"] >= 50:
-                    st.session_state.data["coins"] -= 50
-                    st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 30)
-                    st.toast("+30 HP Recuperado!", icon="❤️")
-                    st.rerun()
-    
+        st.markdown(f"<div style='border: 1px solid {rank_info['color']}; padding:10px; border-radius:10px;'>🧪 <b>POÇÃO DE HP</b><br>Recupera 30 HP<br>Custo: 50 Moedas</div>", unsafe_allow_html=True)
+        if st.button("COMPRAR HP", use_container_width=True):
+            if st.session_state.data["coins"] >= 50:
+                st.session_state.data["coins"] -= 50
+                st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 30)
+                st.rerun()
     with c_shop2:
-        with st.container():
-            st.markdown("#### 🔷 Poção de Mana")
-            st.write("Custo: 50 Moedas")
-            if st.button("Consumir (50g)", key="buy_mp"):
-                if st.session_state.data["coins"] >= 50:
-                    st.session_state.data["coins"] -= 50
-                    st.session_state.data["mp"] = min(100, st.session_state.data["mp"] + 30)
-                    st.toast("+30 MP Recuperado!", icon="🔷")
-                    st.rerun()
+        st.markdown(f"<div style='border: 1px solid {rank_info['color']}; padding:10px; border-radius:10px;'>🔷 <b>ESSÊNCIA DE MANA</b><br>Recupera 30 MP<br>Custo: 50 Moedas</div>", unsafe_allow_html=True)
+        if st.button("COMPRAR MANA", use_container_width=True):
+            if st.session_state.data["coins"] >= 50:
+                st.session_state.data["coins"] -= 50
+                st.session_state.data["mp"] = min(100, st.session_state.data["mp"] + 30)
+                st.rerun()
 
 with tab4:
-    st.markdown("### 📜 REGISTROS DE AKASHA")
-    for log in reversed(st.session_state.data["history"][-20:]):
-        st.markdown(f"> `{log}`")
+    st.markdown(f"### 📜 REGISTROS DE AKASHA")
+    for log in reversed(st.session_state.data["history"][-15:]):
+        st.markdown(f"<span style='color:{rank_info['color']}'>🛡️</span> {log}", unsafe_allow_html=True)
