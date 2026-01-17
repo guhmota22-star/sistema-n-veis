@@ -1,6 +1,8 @@
 import streamlit as st
 import json
 import datetime
+import pandas as pd
+import plotly.graph_objects as go
 from database import EQUIPMENT_DB, QUESTS_DB, get_rank_info, get_total_stats
 
 # --- 1. CONFIGURAÇÃO DE INTERFACE & ESTILO ---
