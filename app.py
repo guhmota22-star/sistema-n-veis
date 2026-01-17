@@ -349,123 +349,136 @@ with st.container():
 
 st.divider()
 
-# --- 6. ABAS DO SISTEMA (AÇÃO E ESTRATÉGIA) ---
+# --- 6. ABAS DO SISTEMA (AÇÃO, ESTRATÉGIA E ARSENAL) ---
 
-# Estilização extra para os cards de missão no PC
-st.markdown(f"""
-    <style>
-    .quest-card {{
-        border: 1px solid {rank_info['color']};
-        background-color: rgba(0,0,0,0.2);
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 10px;
-        transition: 0.3s;
-    }}
-    .quest-card:hover {{
-        background-color: rgba(255, 255, 255, 0.05);
-        box-shadow: 0 0 10px {rank_info['glow']};
-    }}
-    </style>
-""", unsafe_allow_html=True)
+# Recupera os atributos totais calculados na Parte 2
+stats_totais, hp_bonus = get_total_stats()
 
-tab1, tab2, tab3, tab4 = st.tabs(["🗡️ QUESTS DIÁRIAS", "📊 ATRIBUTOS", "🛒 MERCADO", "📜 REGISTROS"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🗡️ QUESTS", "📊 STATUS", "🎒 INVENTÁRIO", "🛒 MERCADO", "📜 LOG"])
 
 with tab1:
     st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
     
-    # Função auxiliar para missões com verificação de Mana
-    def run_quest(cost, str_gain, int_gain, agi_gain, vit_gain, cha_gain, sen_gain, xp, coins, msg):
-        if st.session_state.data["mp"] >= cost:
-            st.session_state.data["mp"] -= cost
-            st.session_state.data["stats"]["STR"] += str_gain
-            st.session_state.data["stats"]["INT"] += int_gain
-            st.session_state.data["stats"]["AGI"] += agi_gain
-            st.session_state.data["stats"]["VIT"] += vit_gain
-            st.session_state.data["stats"]["CHA"] += cha_gain
-            st.session_state.data["stats"]["SEN"] += sen_gain
-            add_xp(xp, coins, msg)
+    # LÓGICA DE BÔNUS DE EQUIPAMENTO
+    mp_red = 0
+    xp_boost = 0
+    coin_boost = 0
+    
+    # Verifica bônus passivos dos itens equipados
+    for slot, item_name in st.session_state.data["equipped"].items():
+        if item_name in EQUIPMENT_DB:
+            item = EQUIPMENT_DB[item_name]
+            mp_red += item.get("mp_reduction", 0)
+            xp_boost += item.get("xp_mult", 0)
+            coin_boost += item.get("coin_mult", 0)
+
+    def run_quest(cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
+        # Aplica redução de custo de mana (mínimo 0)
+        final_cost = max(0, cost - mp_red) if int_g > 0 else cost
+        if st.session_state.data["mp"] >= final_cost:
+            st.session_state.data["mp"] -= final_cost
+            # Ganho de Stats Base
+            st.session_state.data["stats"]["STR"] += str_g
+            st.session_state.data["stats"]["INT"] += int_g
+            st.session_state.data["stats"]["AGI"] += agi_g
+            st.session_state.data["stats"]["VIT"] += vit_g
+            st.session_state.data["stats"]["CHA"] += cha_g
+            st.session_state.data["stats"]["SEN"] += sen_g
+            # XP e Coins com bônus de itens
+            final_xp = int(xp * (1 + xp_boost))
+            final_coins = int(coins * (1 + coin_boost))
+            add_xp(final_xp, final_coins, msg)
             st.rerun()
         else:
-            st.error("Mana Insuficiente! Descanse ou compre uma poção.")
+            st.error(f"Mana Insuficiente! Falta {final_cost - st.session_state.data['mp']} MP.")
 
-    # Linha 1: Desenvolvimento Físico e Mental
+    # Linhas de Quests (Layout otimizado para PC)
     r1c1, r1c2, r1c3 = st.columns(3)
     with r1c1:
         with st.container():
-            st.markdown("<div class='quest-card'>🏋️ TREINO PESADO<br><small>Custo: 20 MP | +0.5 STR</small></div>", unsafe_allow_html=True)
-            if st.button("EXECUTAR", key="q_str", use_container_width=True):
+            st.markdown(f"<div class='quest-card'>🏋️ TREINO PESADO<br><small>Custo: 20 MP | +0.5 STR</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_str"):
                 run_quest(20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
     with r1c2:
         with st.container():
-            st.markdown("<div class='quest-card'>📖 ESTUDO DE CASO<br><small>Custo: 15 MP | +0.5 INT</small></div>", unsafe_allow_html=True)
-            if st.button("EXECUTAR", key="q_int", use_container_width=True):
+            # Exibe o custo reduzido se o Manual estiver equipado
+            custo_estudo = max(0, 15 - mp_red)
+            st.markdown(f"<div class='quest-card'>📖 ESTUDO DE CASO<br><small>Custo: {custo_estudo} MP | +0.5 INT</small></div>", unsafe_allow_html=True)
+            if st.button("EXECUTAR", key="q_int"):
                 run_quest(15, 0, 0.5, 0, 0, 0, 0, 25, 12, "Capítulo de Clínica Médica")
     with r1c3:
         with st.container():
-            st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>Custo: 0 MP | +0.2 VIT</small></div>", unsafe_allow_html=True)
-            if st.button("EXECUTAR", key="q_vit", use_container_width=True):
-                run_quest(0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
-
-    # Linha 2: Carreira e Organização
-    r2c1, r2c2, r2c3 = st.columns(3)
-    with r2c1:
-        with st.container():
-            st.markdown("<div class='quest-card'>🏠 ORGANIZAR BASE<br><small>Custo: 10 MP | +0.3 AGI</small></div>", unsafe_allow_html=True)
-            if st.button("EXECUTAR", key="q_agi", use_container_width=True):
-                run_quest(10, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização do Ambiente")
-    with r2c2:
-        with st.container():
-            st.markdown("<div class='quest-card'>🗣️ COMUNICAÇÃO<br><small>Custo: 10 MP | +0.3 CHA</small></div>", unsafe_allow_html=True)
-            if st.button("EXECUTAR", key="q_cha", use_container_width=True):
-                run_quest(10, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino de Eloquência")
-    with r2c3:
-        with st.container():
             st.markdown("<div class='quest-card'>🎓 PRÁTICA MÉDICA<br><small>Custo: 25 MP | +0.6 SEN</small></div>", unsafe_allow_html=True)
-            if st.button("EXECUTAR", key="q_sen", use_container_width=True):
+            if st.button("EXECUTAR", key="q_sen"):
                 run_quest(25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato / Plantão")
 
-    # Recarregamento
     st.divider()
-    if st.button("💤 SONO REPARADOR", help="Restaura Status Vitais", use_container_width=True):
-        st.session_state.data["hp"] = 100
+    if st.button("💤 SONO REPARADOR", use_container_width=True):
+        st.session_state.data["hp"] = 100 + hp_bonus
         st.session_state.data["mp"] = 100
-        st.toast("Status Restaurados. Bom descanso, Monarca!", icon="💤")
         st.rerun()
 
 with tab2:
-    st.markdown(f"### 📊 PONTOS DE ATRIBUTO: {st.session_state.data['points']}")
-    col_at1, col_at2 = st.columns(2)
-    for i, (stat, val) in enumerate(st.session_state.data["stats"].items()):
-        target_col = col_at1 if i < 3 else col_at2
-        with target_col:
-            st.write(f"**{stat}**: {val}")
-            if st.session_state.data["points"] > 0:
-                if st.button(f"INVESTIR EM {stat}", key=f"up_{stat}"):
-                    st.session_state.data["stats"][stat] += 1
-                    st.session_state.data["points"] -= 1
-                    st.rerun()
+    st.markdown("### 📊 STATUS REAIS (BASE + EQUIPAMENTOS)")
+    st.write(f"Pontos Livres: **{st.session_state.data['points']}**")
+    
+    # Exibe comparação de atributos
+    for stat, total_val in stats_totais.items():
+        base_val = st.session_state.data["stats"][stat]
+        bonus = total_val - base_val
+        bonus_txt = f" <span style='color:{rank_info['color']}'> (+{bonus})</span>" if bonus > 0 else ""
+        st.markdown(f"**{stat}**: {base_val}{bonus_txt} → **{total_val}**", unsafe_allow_html=True)
+        if st.session_state.data["points"] > 0:
+            if st.button(f"UP {stat}", key=f"up_{stat}"):
+                st.session_state.data["stats"][stat] += 1
+                st.session_state.data["points"] -= 1
+                st.rerun()
 
 with tab3:
-    st.markdown("### 🛒 LOJA DO SISTEMA")
-    c_shop1, c_shop2 = st.columns(2)
-    with c_shop1:
-        st.markdown(f"<div style='border: 1px solid {rank_info['color']}; padding:10px; border-radius:10px;'>🧪 <b>POÇÃO DE HP</b><br>Recupera 30 HP<br>Custo: 50 Moedas</div>", unsafe_allow_html=True)
-        if st.button("COMPRAR HP", use_container_width=True):
-            if st.session_state.data["coins"] >= 50:
-                st.session_state.data["coins"] -= 50
-                st.session_state.data["hp"] = min(100, st.session_state.data["hp"] + 30)
-                st.rerun()
-    with c_shop2:
-        st.markdown(f"<div style='border: 1px solid {rank_info['color']}; padding:10px; border-radius:10px;'>🔷 <b>ESSÊNCIA DE MANA</b><br>Recupera 30 MP<br>Custo: 50 Moedas</div>", unsafe_allow_html=True)
-        if st.button("COMPRAR MANA", use_container_width=True):
-            if st.session_state.data["coins"] >= 50:
-                st.session_state.data["coins"] -= 50
-                st.session_state.data["mp"] = min(100, st.session_state.data["mp"] + 30)
-                st.rerun()
+    st.markdown("### 🎒 INVENTÁRIO DO MONARCA")
+    if not st.session_state.data["inventory"]:
+        st.info("Seu inventário está vazio. Visite o mercado.")
+    else:
+        for item_name in st.session_state.data["inventory"]:
+            item = EQUIPMENT_DB[item_name]
+            col1, col2 = st.columns([3, 1])
+            col1.write(f"**{item_name}** ({item['desc']})")
+            
+            # Lógica de Equipar/Desequipar
+            slot = item["slot"]
+            is_equipped = st.session_state.data["equipped"][slot] == item_name
+            
+            if is_equipped:
+                if col2.button("DESEQUIPAR", key=f"uneq_{item_name}"):
+                    st.session_state.data["equipped"][slot] = None
+                    st.rerun()
+            else:
+                if col2.button("EQUIPAR", key=f"eq_{item_name}"):
+                    st.session_state.data["equipped"][slot] = item_name
+                    st.rerun()
 
 with tab4:
-    st.markdown(f"### 📜 REGISTROS DE AKASHA")
+    st.markdown("### 🛒 MERCADO DE INVESTIMENTOS")
+    # Apenas itens que você ainda NÃO possui
+    disponiveis = {k: v for k, v in EQUIPMENT_DB.items() if k not in st.session_state.data["inventory"]}
+    
+    if not disponiveis:
+        st.success("Você já adquiriu todos os investimentos disponíveis!")
+    else:
+        for name, info in disponiveis.items():
+            with st.container():
+                st.markdown(f"**{name}**")
+                st.caption(info["desc"])
+                if st.button(f"ADQUIRIR (200g)", key=f"buy_{name}"):
+                    if st.session_state.data["coins"] >= 200:
+                        st.session_state.data["coins"] -= 200
+                        st.session_state.data["inventory"].append(name)
+                        st.toast(f"Item {name} adicionado ao inventário!")
+                        st.rerun()
+                    else:
+                        st.error("Moedas insuficientes.")
+
+with tab5:
+    st.markdown("### 📜 REGISTROS DE AKASHA")
     for log in reversed(st.session_state.data["history"][-15:]):
-        st.markdown(f"<span style='color:{rank_info['color']}'>🛡️</span> {log}", unsafe_allow_html=True)
+        st.markdown(f"🛡️ {log}")
