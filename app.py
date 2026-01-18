@@ -130,27 +130,23 @@ def get_initial_data():
         "last_access": str(datetime.date.today()),
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
         "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
-        "achievements": [], # Conquistas desbloqueadas
-        "active_title": None, # Título equipado
-        "history": []
+        "achievements": [], "active_title": None, "history": []
     }
 
 # 3. Inicialização e Lógica de Auto-Reparo
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Patch para saves antigos (Sistema de Conquistas)
-    if "achievements" not in st.session_state.data:
-        st.session_state.data["achievements"] = []
-    if "active_title" not in st.session_state.data:
-        st.session_state.data["active_title"] = None
-    # Patch para sistema de equipamentos (caso necessário)
-    if "inventory" not in st.session_state.data:
-        st.session_state.data["inventory"] = []
-    if "equipped" not in st.session_state.data:
-        st.session_state.data["equipped"] = {"head": None, "body": None, "hands": None, "accessory": None}
+    # Patch de segurança para chaves ausentes
+    keys_to_check = {
+        "achievements": [], "active_title": None, 
+        "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None}
+    }
+    for key, default in keys_to_check.items():
+        if key not in st.session_state.data:
+            st.session_state.data[key] = default
 
-# 4. Função de Verificação de Conquistas (Trigger Automático)
+# 4. Função de Verificação de Conquistas
 def check_achievements():
     novas = []
     base_stats = st.session_state.data["stats"]
@@ -162,9 +158,10 @@ def check_achievements():
                 novas.append(nome)
     return novas
 
-# 5. Função para Atributos Reais (Equipamentos + Conquistas)
+# 5. Função para Atributos Reais (Com Arredondamento)
 def get_total_stats():
-    base = st.session_state.data["stats"].copy()
+    # Copia e arredonda a base para evitar números gigantes no cálculo
+    base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
     hp_extra = 0
     equipped = st.session_state.data["equipped"]
     unlocked = st.session_state.data["achievements"]
@@ -173,18 +170,18 @@ def get_total_stats():
     for slot, item_name in equipped.items():
         if item_name in EQUIPMENT_DB:
             item = EQUIPMENT_DB[item_name]
-            for stat in base: base[stat] += item.get(f"bonus_{stat.lower()}", 0)
+            for stat in base: 
+                base[stat] = round(base[stat] + item.get(f"bonus_{stat.lower()}", 0), 1)
             hp_extra += item.get("hp_max", 0)
     
-    # Bônus Passivos de Conquistas
+    # Bônus de Conquistas
     for ach in unlocked:
         if ach in ACHIEVEMENTS_DB:
             hp_extra += ACHIEVEMENTS_DB[ach].get("hp_bonus", 0)
-            # Exemplo de multiplicador de VIT (Sobrevivente)
             if "vit_mult" in ACHIEVEMENTS_DB[ach]:
-                base["VIT"] = int(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"])
+                base["VIT"] = round(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"], 1)
                 
-    return base, hp_extra
+    return base, round(hp_extra, 1)
 
 # Execução da Lógica Core
 novas_conquistas = check_achievements()
@@ -348,30 +345,39 @@ with st.container():
         titulo_exibido = st.session_state.data.get("active_title") or rank_info['title']
         st.caption(f"🛡️ Título: {titulo_exibido}")
         
-        # Status de Vida com HP Máximo Dinâmico (Base + Itens + Conquistas)
-        hp_max_total = 100 + hp_bonus
-        st.markdown(f"<span class='label-hp'>❤️ HP: {st.session_state.data['hp']}/{hp_max_total}</span>", unsafe_allow_html=True)
-        st.progress(min(st.session_state.data['hp'] / hp_max_total, 1.0))
+        # Status de Vida com Arredondamento
+        hp_max_total = round(100 + hp_bonus, 1)
+        hp_atual = round(st.session_state.data['hp'], 1)
+        st.markdown(f"<span class='label-hp'>❤️ HP: {hp_atual}/{hp_max_total}</span>", unsafe_allow_html=True)
+        st.progress(min(hp_atual / hp_max_total, 1.0))
         
-        # Status de Energia
-        st.markdown(f"<span class='label-mp'>🔷 MP: {st.session_state.data['mp']}/100</span>", unsafe_allow_html=True)
-        st.progress(st.session_state.data['mp'] / 100)
+        # Status de Energia com Arredondamento
+        mp_atual = round(st.session_state.data['mp'], 1)
+        st.markdown(f"<span class='label-mp'>🔷 MP: {mp_atual}/100</span>", unsafe_allow_html=True)
+        st.progress(min(mp_atual / 100, 1.0))
 
     with c_hud2:
         st.markdown("### RECOMPENSAS")
-        xp_atual = st.session_state.data['xp']
-        xp_needed = int(100 * (st.session_state.data['lvl'] ** 1.5))
+        xp_atual = round(st.session_state.data['xp'], 1)
+        xp_needed = round(100 * (st.session_state.data['lvl'] ** 1.5), 1)
         
         st.markdown(f"<span class='label-xp'>✨ XP: {xp_atual}/{xp_needed}</span>", unsafe_allow_html=True)
         st.progress(min(xp_atual / xp_needed, 1.0))
         
-        st.markdown(f"<span class='label-coins'>💰 MOEDAS: {st.session_state.data['coins']}</span>", unsafe_allow_html=True)
+        moedas = round(st.session_state.data['coins'], 1)
+        st.markdown(f"<span class='label-coins'>💰 MOEDAS: {moedas}</span>", unsafe_allow_html=True)
         st.caption("Modo Offline: Registro Local")
 
     with c_hud3:
-        # Gráfico de Radar com ATRIBUTOS TOTAIS (Base + Itens + Conquistas)
-        labels = list(stats_totais.keys())
-        values = list(stats_totais.values())
+        # Tradução das Siglas para o Radar
+        attr_nomes = {
+            "STR": "FORÇA", "INT": "INTELIGÊNCIA", "AGI": "AGILIDADE", 
+            "VIT": "VITALIDADE", "CHA": "CARISMA", "SEN": "PERCEPÇÃO"
+        }
+        
+        # Gráfico de Radar com nomes completos e valores limpos
+        labels = [attr_nomes.get(s, s) for s in stats_totais.keys()]
+        values = [round(v, 1) for v in stats_totais.values()]
         
         fig = go.Figure(data=go.Scatterpolar(
             r=values,
@@ -385,8 +391,8 @@ with st.container():
             polar=dict(radialaxis=dict(visible=False, range=[0, 50])),
             paper_bgcolor="rgba(0,0,0,0)",
             font_color="white",
-            height=200,
-            margin=dict(t=10, b=10, l=10, r=10)
+            height=220,
+            margin=dict(t=30, b=20, l=40, r=40)
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
@@ -394,11 +400,12 @@ st.divider()
 
 # --- 6. ABAS DO SISTEMA (AÇÃO, ESTRATÉGIA E GLÓRIA) ---
 
-# 1. Recuperação de Bônus Ativos (Equipamentos + Conquistas Passivas)
-mp_red = 0; xp_boost = 0; coin_boost = 0
+# 1. Recuperação de Bônus e Arredondamento Tático
+mp_red = round(0, 1)
+xp_boost = round(0, 1)
+coin_boost = round(0, 1)
 unlocked = st.session_state.data["achievements"]
 
-# Bônus de Itens
 for slot, item_name in st.session_state.data["equipped"].items():
     if item_name in EQUIPMENT_DB:
         item = EQUIPMENT_DB[item_name]
@@ -406,7 +413,6 @@ for slot, item_name in st.session_state.data["equipped"].items():
         xp_boost += item.get("xp_mult", 0)
         coin_boost += item.get("coin_mult", 0)
 
-# Bônus Passivos de Conquistas (Globais)
 if "Mestre do Anki" in unlocked: xp_boost += 0.05
 if "Voz do Paciente" in unlocked: coin_boost += 0.10
 
@@ -416,62 +422,96 @@ with tab1:
     st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
     
     def run_quest(cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
-        # Redução de MP para estudos (INT)
-        final_cost = max(0, cost - mp_red) if int_g > 0 else cost
+        final_cost = round(max(0, cost - mp_red) if int_g > 0 else cost, 1)
         
         if st.session_state.data["mp"] >= final_cost:
             st.session_state.data["mp"] -= final_cost
-            # Evolução de Atributos Base
             stats = st.session_state.data["stats"]
             stats["STR"] += str_g; stats["INT"] += int_g; stats["AGI"] += agi_g
             stats["VIT"] += vit_g; stats["CHA"] += cha_g; stats["SEN"] += sen_g
             
-            # Cálculo de XP e Moedas com bônus acumulados
             final_xp = int(xp * (1 + xp_boost))
             final_coins = int(coins * (1 + coin_boost))
             add_xp(final_xp, final_coins, msg)
             st.rerun()
         else:
-            st.error(f"Mana Insuficiente! Falta {final_cost - st.session_state.data['mp']} MP.")
+            st.error(f"Mana Insuficiente! Falta {round(final_cost - st.session_state.data['mp'], 1)} MP.")
 
     # Missões Organizadas
     r1c1, r1c2, r1c3 = st.columns(3)
     with r1c1:
         st.markdown(f"<div class='quest-card'>🏋️ TREINO PESADO<br><small>20 MP | +0.5 STR</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q1"): run_quest(20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
+        if st.button("EXECUTAR", key="q1", use_container_width=True): run_quest(20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
     with r1c2:
-        cost_int = max(0, 15 - mp_red)
+        cost_int = round(max(0, 15 - mp_red), 1)
         st.markdown(f"<div class='quest-card'>📖 ESTUDO CASO<br><small>{cost_int} MP | +0.5 INT</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q2"): run_quest(15, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
+        if st.button("EXECUTAR", key="q2", use_container_width=True): run_quest(15, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
     with r1c3:
         st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>0 MP | +0.2 VIT</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q3"): run_quest(0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
+        if st.button("EXECUTAR", key="q3", use_container_width=True): run_quest(0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
 
     r2c1, r2c2, r2c3 = st.columns(3)
     with r2c1:
         st.markdown("<div class='quest-card'>🏠 ARRUMAR BASE<br><small>10 MP | +0.3 AGI</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q4"): run_quest(10, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
+        if st.button("EXECUTAR", key="q4", use_container_width=True): run_quest(10, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
     with r2c2:
         st.markdown("<div class='quest-card'>🗣️ COMUNICAÇÃO<br><small>10 MP | +0.3 CHA</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q5"): run_quest(10, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
+        if st.button("EXECUTAR", key="q5", use_container_width=True): run_quest(10, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
     with r2c3:
         st.markdown("<div class='quest-card'>🎓 PLANTÃO/PRÁTICA<br><small>25 MP | +0.6 SEN</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q6"): run_quest(25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
+        if st.button("EXECUTAR", key="q6", use_container_width=True): run_quest(25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
 
     st.divider()
     if st.button("💤 SONO REPARADOR", use_container_width=True):
-        st.session_state.data["hp"] = 100 + hp_bonus
+        st.session_state.data["hp"] = round(100 + hp_bonus, 1)
         st.session_state.data["mp"] = 100
         st.rerun()
 
 with tab2:
-    st.markdown(f"### 📊 STATUS REAIS (BASE + BÔNUS)")
-    for stat, total_val in stats_totais.items():
-        base = st.session_state.data["stats"][stat]
-        bonus = total_val - base
-        st.write(f"**{stat}**: {base} {'(+' + str(bonus) + ')' if bonus > 0 else ''} → **{total_val}**")
+    st.markdown(f"### 📊 FICHA TÉCNICA (ATRIBUTOS REAIS)")
+    
+    # Mapa de Tradução e Clareza
+    attr_map = {
+        "STR": ("💪 Força", "Poder físico e hipertrofia"),
+        "INT": ("🧠 Inteligência", "Conhecimento médico e estudos"),
+        "AGI": ("⚡ Agilidade", "Organização e rapidez de ação"),
+        "VIT": ("🩸 Vitalidade", "Resistência, saúde e sono"),
+        "CHA": ("🗣️ Carisma", "Comunicação e liderança"),
+        "SEN": ("👁️ Percepção", "Sensibilidade e prática clínica")
+    }
+
+    col_stats_left, col_stats_right = st.columns(2)
+    
+    for i, (stat, (name, desc)) in enumerate(attr_map.items()):
+        base_val = round(st.session_state.data["stats"][stat], 1)
+        total_val = round(stats_totais[stat], 1)
+        bonus = round(total_val - base_val, 1)
+        
+        target_col = col_stats_left if i < 3 else col_stats_right
+        
+        with target_col:
+            st.markdown(f"""
+                <div style='background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid {rank_info['color']}'>
+                    <div style='display: flex; justify-content: space-between; align-items: center;'>
+                        <span style='font-size: 15px; font-weight: bold;'>{name}</span>
+                        <span style='font-size: 18px; color: {rank_info['color']}; font-weight: bold;'>{total_val}</span>
+                    </div>
+                    <div style='font-size: 11px; color: #888;'>{desc}</div>
+                    <div style='font-size: 10px; opacity: 0.6;'>
+                        Base: {base_val} {f' | <span style="color:{rank_info["color"]}">+{bonus} bônus</span>' if bonus > 0 else ''}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
     if st.session_state.data["points"] > 0:
-        st.info(f"Você tem {st.session_state.data['points']} pontos disponíveis.")
+        st.divider()
+        st.success(f"✨ PONTOS DISPONÍVEIS: {st.session_state.data['points']}")
+        cols_up = st.columns(6)
+        for i, stat in enumerate(attr_map.keys()):
+            if cols_up[i].button(f"+ {stat}", key=f"up_{stat}"):
+                st.session_state.data["stats"][stat] += 1
+                st.session_state.data["points"] -= 1
+                st.rerun()
 
 with tab3:
     st.markdown("### 🎒 SEU ARSENAL (INVENTÁRIO)")
@@ -519,6 +559,11 @@ with tab5:
                     st.session_state.data["inventory"].append(name)
                     st.rerun()
                 else: st.error("Moedas insuficientes.")
+
+with tab6:
+    st.markdown("### 📜 REGISTROS DE AKASHA")
+    for log in reversed(st.session_state.data["history"][-15:]):
+        st.write(f"🛡️ {log}")
 
 with tab6:
     st.markdown("### 📜 REGISTROS DE AKASHA")
