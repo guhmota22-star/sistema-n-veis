@@ -97,7 +97,7 @@ st.markdown("""
 
 # --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (SISTEMA DE AKASHA) ---
 
-# 1. Banco de Dados de Equipamentos (Grounding: Realidade do Interno/Atleta)
+# 1. Banco de Dados de Equipamentos
 EQUIPMENT_DB = {
     "Assinatura de Banco de Questões": {"slot": "head", "bonus_int": 2, "xp_mult": 0.15, "desc": "+15% XP em Estudos"},
     "Tênis de Plantão": {"slot": "body", "hp_max": 20, "desc": "+20 HP Máximo"},
@@ -107,61 +107,94 @@ EQUIPMENT_DB = {
     "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"}
 }
 
+# 2. Biblioteca de Conquistas (Achievements)
+ACHIEVEMENTS_DB = {
+    "Mestre do Anki": {"req": ("INT", 50), "title": "O Erudito", "xp_bonus": 0.05, "desc": "+5% XP em Estudos"},
+    "Titã de Diamantina": {"req": ("STR", 50), "title": "O Colosso", "hp_bonus": 5, "desc": "+5 HP Máximo"},
+    "Voz do Paciente": {"req": ("CHA", 30), "title": "O Diplomata", "coin_bonus": 0.10, "desc": "+10% Moedas em CHA"},
+    "Olhar de Lince": {"req": ("SEN", 30), "title": "O Diagnosticador", "desc": "+2 MP por Missão"},
+    "Sobrevivente": {"req": ("VIT", 50), "title": "O Veterano", "vit_mult": 1.10, "desc": "+10% Resistência (VIT)"}
+}
+
 def get_rank_info(level):
-    """Define a aura, a cor e o Título do Monarca baseado no nível"""
-    if level < 10: 
-        return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
-    if level < 20: 
-        return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
-    if level < 30: 
-        return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)", "title": "Residente Aspirante"}
-    if level < 40: 
-        return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)", "title": "Mestre da Clínica"}
-    if level < 50: 
-        return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
+    if level < 10: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
+    if level < 20: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
+    if level < 30: return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)", "title": "Residente Aspirante"}
+    if level < 40: return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)", "title": "Mestre da Clínica"}
+    if level < 50: return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
     return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano da Medicina"}
 
 def get_initial_data():
-    """Gera o estado inicial de um Caçador Nível 1 com Inventário"""
     return {
         "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
         "last_access": str(datetime.date.today()),
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
-        "inventory": [], # Itens comprados
-        "equipped": {"head": None, "body": None, "hands": None, "accessory": None}, # Itens ativos
+        "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
+        "achievements": [], # Conquistas desbloqueadas
+        "active_title": None, # Título equipado
         "history": []
     }
 
-# 2. Inicialização e Lógica de Auto-Reparo (Migração de Save)
+# 3. Inicialização e Lógica de Auto-Reparo
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Garante que chaves novas existam em saves antigos
+    # Patch para saves antigos (Sistema de Conquistas)
+    if "achievements" not in st.session_state.data:
+        st.session_state.data["achievements"] = []
+    if "active_title" not in st.session_state.data:
+        st.session_state.data["active_title"] = None
+    # Patch para sistema de equipamentos (caso necessário)
     if "inventory" not in st.session_state.data:
         st.session_state.data["inventory"] = []
     if "equipped" not in st.session_state.data:
         st.session_state.data["equipped"] = {"head": None, "body": None, "hands": None, "accessory": None}
 
-# 3. Função para calcular Atributos Reais (Base + Equipamentos)
+# 4. Função de Verificação de Conquistas (Trigger Automático)
+def check_achievements():
+    novas = []
+    base_stats = st.session_state.data["stats"]
+    for nome, info in ACHIEVEMENTS_DB.items():
+        if nome not in st.session_state.data["achievements"]:
+            attr, meta = info["req"]
+            if base_stats[attr] >= meta:
+                st.session_state.data["achievements"].append(nome)
+                novas.append(nome)
+    return novas
+
+# 5. Função para Atributos Reais (Equipamentos + Conquistas)
 def get_total_stats():
     base = st.session_state.data["stats"].copy()
     hp_extra = 0
     equipped = st.session_state.data["equipped"]
+    unlocked = st.session_state.data["achievements"]
     
+    # Bônus de Itens
     for slot, item_name in equipped.items():
         if item_name in EQUIPMENT_DB:
             item = EQUIPMENT_DB[item_name]
-            # Soma bônus de atributos se existirem no item
-            for stat in base:
-                base[stat] += item.get(f"bonus_{stat.lower()}", 0)
+            for stat in base: base[stat] += item.get(f"bonus_{stat.lower()}", 0)
             hp_extra += item.get("hp_max", 0)
+    
+    # Bônus Passivos de Conquistas
+    for ach in unlocked:
+        if ach in ACHIEVEMENTS_DB:
+            hp_extra += ACHIEVEMENTS_DB[ach].get("hp_bonus", 0)
+            # Exemplo de multiplicador de VIT (Sobrevivente)
+            if "vit_mult" in ACHIEVEMENTS_DB[ach]:
+                base["VIT"] = int(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"])
+                
     return base, hp_extra
 
-# Recupera informações de Rank e Atributos Totais
+# Execução da Lógica Core
+novas_conquistas = check_achievements()
+for ach in novas_conquistas:
+    st.toast(f"🏆 CONQUISTA DESBLOQUEADA: {ach}", icon="🌟")
+
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_bonus = get_total_stats()
 
-# --- INJEÇÃO DE AURA DINÂMICA ---
+# Injeção de Aura Dinâmica
 st.markdown(f"""
     <style>
     h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}
@@ -171,7 +204,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- REGENERAÇÃO TEMPORAL ---
+# Regeneração Temporal
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
     st.session_state.data["mp"] = 100 
@@ -310,9 +343,12 @@ with st.container():
     
     with c_hud1:
         st.markdown(f"### <span style='color:{rank_info['color']}'>RANK {rank_info['name']}</span> | NÍVEL {st.session_state.data['lvl']}", unsafe_allow_html=True)
-        st.caption(f"🛡️ Título: {rank_info['title']}")
         
-        # Status de Vida com HP Máximo Dinâmico
+        # Lógica de Título: Prioriza Conquista Ativa, senão usa o Rank
+        titulo_exibido = st.session_state.data.get("active_title") or rank_info['title']
+        st.caption(f"🛡️ Título: {titulo_exibido}")
+        
+        # Status de Vida com HP Máximo Dinâmico (Base + Itens + Conquistas)
         hp_max_total = 100 + hp_bonus
         st.markdown(f"<span class='label-hp'>❤️ HP: {st.session_state.data['hp']}/{hp_max_total}</span>", unsafe_allow_html=True)
         st.progress(min(st.session_state.data['hp'] / hp_max_total, 1.0))
@@ -333,7 +369,7 @@ with st.container():
         st.caption("Modo Offline: Registro Local")
 
     with c_hud3:
-        # Gráfico de Radar com ATRIBUTOS TOTAIS (Base + Itens)
+        # Gráfico de Radar com ATRIBUTOS TOTAIS (Base + Itens + Conquistas)
         labels = list(stats_totais.keys())
         values = list(stats_totais.values())
         
@@ -356,10 +392,13 @@ with st.container():
 
 st.divider()
 
-# --- 6. ABAS DO SISTEMA (AÇÃO E ESTRATÉGIA) ---
+# --- 6. ABAS DO SISTEMA (AÇÃO, ESTRATÉGIA E GLÓRIA) ---
 
-# 1. Recuperação de Bônus Ativos (Calculados na Parte 2)
+# 1. Recuperação de Bônus Ativos (Equipamentos + Conquistas Passivas)
 mp_red = 0; xp_boost = 0; coin_boost = 0
+unlocked = st.session_state.data["achievements"]
+
+# Bônus de Itens
 for slot, item_name in st.session_state.data["equipped"].items():
     if item_name in EQUIPMENT_DB:
         item = EQUIPMENT_DB[item_name]
@@ -367,25 +406,27 @@ for slot, item_name in st.session_state.data["equipped"].items():
         xp_boost += item.get("xp_mult", 0)
         coin_boost += item.get("coin_mult", 0)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🗡️ QUESTS", "📊 STATUS", "🎒 ARSENAL", "🛒 MERCADO", "📜 LOGS"])
+# Bônus Passivos de Conquistas (Globais)
+if "Mestre do Anki" in unlocked: xp_boost += 0.05
+if "Voz do Paciente" in unlocked: coin_boost += 0.10
+
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🗡️ QUESTS", "📊 STATUS", "🎒 ARSENAL", "🏆 CONQUISTAS", "🛒 MERCADO", "📜 LOGS"])
 
 with tab1:
     st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
     
     def run_quest(cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
-        # Aplica redução de MP se for missão de INT (Estudo/Flashcards)
+        # Redução de MP para estudos (INT)
         final_cost = max(0, cost - mp_red) if int_g > 0 else cost
         
         if st.session_state.data["mp"] >= final_cost:
             st.session_state.data["mp"] -= final_cost
             # Evolução de Atributos Base
-            st.session_state.data["stats"]["STR"] += str_g
-            st.session_state.data["stats"]["INT"] += int_g
-            st.session_state.data["stats"]["AGI"] += agi_g
-            st.session_state.data["stats"]["VIT"] += vit_g
-            st.session_state.data["stats"]["CHA"] += cha_g
-            st.session_state.data["stats"]["SEN"] += sen_g
-            # XP e Coins com bônus de equipamentos
+            stats = st.session_state.data["stats"]
+            stats["STR"] += str_g; stats["INT"] += int_g; stats["AGI"] += agi_g
+            stats["VIT"] += vit_g; stats["CHA"] += cha_g; stats["SEN"] += sen_g
+            
+            # Cálculo de XP e Moedas com bônus acumulados
             final_xp = int(xp * (1 + xp_boost))
             final_coins = int(coins * (1 + coin_boost))
             add_xp(final_xp, final_coins, msg)
@@ -393,7 +434,7 @@ with tab1:
         else:
             st.error(f"Mana Insuficiente! Falta {final_cost - st.session_state.data['mp']} MP.")
 
-    # Missões (Layout de 3 Colunas)
+    # Missões Organizadas
     r1c1, r1c2, r1c3 = st.columns(3)
     with r1c1:
         st.markdown(f"<div class='quest-card'>🏋️ TREINO PESADO<br><small>20 MP | +0.5 STR</small></div>", unsafe_allow_html=True)
@@ -435,7 +476,7 @@ with tab2:
 with tab3:
     st.markdown("### 🎒 SEU ARSENAL (INVENTÁRIO)")
     if not st.session_state.data["inventory"]:
-        st.info("Seu inventário está vazio. Adquira itens no Mercado.")
+        st.info("Inventário vazio.")
     else:
         for item in st.session_state.data["inventory"]:
             col1, col2 = st.columns([3, 1])
@@ -447,8 +488,28 @@ with tab3:
                 st.rerun()
 
 with tab4:
+    st.markdown("### 🏆 GALERIA DE CONQUISTAS")
+    for ach, info in ACHIEVEMENTS_DB.items():
+        is_unlocked = ach in unlocked
+        color = rank_info['color'] if is_unlocked else "#555"
+        with st.container():
+            st.markdown(f"""
+                <div style='border: 1px solid {color}; padding: 10px; border-radius: 10px; margin-bottom: 10px;'>
+                    <h4 style='margin:0; color:{color};'>{'🌟' if is_unlocked else '🔒'} {ach}</h4>
+                    <p style='margin:5px 0; font-size: 14px;'>{info['desc']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            if is_unlocked:
+                title = info['title']
+                if st.session_state.data["active_title"] == title:
+                    st.button(f"TÍTULO EQUIPADO: {title}", disabled=True, key=f"title_{ach}")
+                else:
+                    if st.button(f"EQUIPAR TÍTULO: {title}", key=f"title_{ach}"):
+                        st.session_state.data["active_title"] = title
+                        st.rerun()
+
+with tab5:
     st.markdown("### 🛒 MERCADO DE INVESTIMENTOS")
-    # Filtra apenas itens que você ainda NÃO tem
     for name, info in EQUIPMENT_DB.items():
         if name not in st.session_state.data["inventory"]:
             st.write(f"**{name}** - {info['desc']}")
@@ -459,7 +520,7 @@ with tab4:
                     st.rerun()
                 else: st.error("Moedas insuficientes.")
 
-with tab5:
+with tab6:
     st.markdown("### 📜 REGISTROS DE AKASHA")
     for log in reversed(st.session_state.data["history"][-15:]):
         st.write(f"🛡️ {log}")
