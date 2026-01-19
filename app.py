@@ -107,22 +107,15 @@ EQUIPMENT_DB = {
     "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"}
 }
 
-# 2. Biblioteca de Conquistas (Achievements)
+# 2. Biblioteca de Conquistas (Incluindo Disciplina de Ferro)
 ACHIEVEMENTS_DB = {
-    "Mestre do Anki": {"req": ("INT", 50), "title": "O Erudito", "xp_bonus": 0.05, "desc": "+5% XP em Estudos"},
+    "Mestre do Anki": {"req": ("INT", 50), "title": "O Erudito", "desc": "+5% XP em Estudos"},
     "Titã de Diamantina": {"req": ("STR", 50), "title": "O Colosso", "hp_bonus": 5, "desc": "+5 HP Máximo"},
-    "Voz do Paciente": {"req": ("CHA", 30), "title": "O Diplomata", "coin_bonus": 0.10, "desc": "+10% Moedas em CHA"},
+    "Voz do Paciente": {"req": ("CHA", 30), "title": "O Diplomata", "desc": "+10% Moedas em CHA"},
     "Olhar de Lince": {"req": ("SEN", 30), "title": "O Diagnosticador", "desc": "+2 MP por Missão"},
-    "Sobrevivente": {"req": ("VIT", 50), "title": "O Veterano", "vit_mult": 1.10, "desc": "+10% Resistência (VIT)"}
+    "Sobrevivente": {"req": ("VIT", 50), "title": "O Veterano", "vit_mult": 1.10, "desc": "+10% Resistência (VIT)"},
+    "Disciplina de Ferro": {"streak_req": 7, "title": "O Inabalável", "desc": "Mantenha um Streak de 7 dias"}
 }
-
-def get_rank_info(level):
-    if level < 10: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
-    if level < 20: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
-    if level < 30: return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)", "title": "Residente Aspirante"}
-    if level < 40: return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)", "title": "Mestre da Clínica"}
-    if level < 50: return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
-    return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano da Medicina"}
 
 def get_initial_data():
     return {
@@ -130,60 +123,88 @@ def get_initial_data():
         "last_access": str(datetime.date.today()),
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
         "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
-        "achievements": [], "active_title": None, "history": []
+        "achievements": [], "active_title": None, "history": [],
+        "streaks": {} 
     }
 
 # 3. Inicialização e Lógica de Auto-Reparo
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Patch de segurança para chaves ausentes
     keys_to_check = {
-        "achievements": [], "active_title": None, 
-        "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None}
+        "achievements": [], "active_title": None, "inventory": [], 
+        "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
+        "streaks": {} 
     }
     for key, default in keys_to_check.items():
         if key not in st.session_state.data:
             st.session_state.data[key] = default
 
-# 4. Função de Verificação de Conquistas
+# 4. Lógica de Sequência (Streaks)
+def update_quest_streak(quest_id):
+    hoje = datetime.date.today()
+    ontem = hoje - datetime.timedelta(days=1)
+    if quest_id not in st.session_state.data["streaks"]:
+        st.session_state.data["streaks"][quest_id] = {"count": 1, "last_date": str(hoje)}
+        return 1
+    streak_data = st.session_state.data["streaks"][quest_id]
+    last_date = datetime.datetime.strptime(streak_data["last_date"], "%Y-%m-%d").date()
+    if last_date == ontem:
+        streak_data["count"] += 1
+        streak_data["last_date"] = str(hoje)
+    elif last_date < ontem:
+        streak_data["count"] = 1
+        streak_data["last_date"] = str(hoje)
+    return streak_data["count"]
+
+def get_streak_multiplier(quest_id):
+    count = st.session_state.data["streaks"].get(quest_id, {}).get("count", 0)
+    if count >= 3:
+        return min(0.50, (count - 2) * 0.05)
+    return 0.0
+
+# 5. Funções Core: Verificação Dinâmica de Conquistas
 def check_achievements():
     novas = []
-    base_stats = st.session_state.data["stats"]
+    data = st.session_state.data
+    base_stats = data["stats"]
+    streaks = data["streaks"]
+
     for nome, info in ACHIEVEMENTS_DB.items():
-        if nome not in st.session_state.data["achievements"]:
-            attr, meta = info["req"]
-            if base_stats[attr] >= meta:
-                st.session_state.data["achievements"].append(nome)
-                novas.append(nome)
+        if nome not in data["achievements"]:
+            # Verificação por Atributo
+            if "req" in info:
+                attr, meta = info["req"]
+                if base_stats[attr] >= meta:
+                    data["achievements"].append(nome)
+                    novas.append(nome)
+            
+            # Verificação por Sequência (Streak)
+            if "streak_req" in info:
+                meta = info["streak_req"]
+                # Se qualquer missão no seu checklist atingir o meta (ex: 7 dias)
+                if any(s.get("count", 0) >= meta for s in streaks.values()):
+                    data["achievements"].append(nome)
+                    novas.append(nome)
     return novas
 
-# 5. Função para Atributos Reais (Com Arredondamento)
 def get_total_stats():
-    # Copia e arredonda a base para evitar números gigantes no cálculo
     base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
     hp_extra = 0
     equipped = st.session_state.data["equipped"]
     unlocked = st.session_state.data["achievements"]
-    
-    # Bônus de Itens
     for slot, item_name in equipped.items():
         if item_name in EQUIPMENT_DB:
             item = EQUIPMENT_DB[item_name]
-            for stat in base: 
-                base[stat] = round(base[stat] + item.get(f"bonus_{stat.lower()}", 0), 1)
+            for stat in base: base[stat] = round(base[stat] + item.get(f"bonus_{stat.lower()}", 0), 1)
             hp_extra += item.get("hp_max", 0)
-    
-    # Bônus de Conquistas
     for ach in unlocked:
         if ach in ACHIEVEMENTS_DB:
             hp_extra += ACHIEVEMENTS_DB[ach].get("hp_bonus", 0)
-            if "vit_mult" in ACHIEVEMENTS_DB[ach]:
-                base["VIT"] = round(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"], 1)
-                
+            if "vit_mult" in ACHIEVEMENTS_DB[ach]: base["VIT"] = round(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"], 1)
     return base, round(hp_extra, 1)
 
-# Execução da Lógica Core
+# Execução Core
 novas_conquistas = check_achievements()
 for ach in novas_conquistas:
     st.toast(f"🏆 CONQUISTA DESBLOQUEADA: {ach}", icon="🌟")
@@ -191,17 +212,18 @@ for ach in novas_conquistas:
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_bonus = get_total_stats()
 
-# Injeção de Aura Dinâmica
+# Injeção de Estilo
 st.markdown(f"""
     <style>
     h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}
     .stButton>button {{ border-color: {rank_info['color']} !important; color: {rank_info['color']} !important; }}
     .stButton>button:hover {{ background-color: {rank_info['color']} !important; color: black !important; box-shadow: 0 0 20px {rank_info['color']} !important; }}
     div[st-ui="stProgress"] > div > div > div {{ background-color: {rank_info['color']} !important; }}
+    .streak-aura {{ box-shadow: 0 0 15px {rank_info['color']}; border: 1px solid {rank_info['color']} !important; }}
     </style>
     """, unsafe_allow_html=True)
 
-# Regeneração Temporal
+# Regeneração
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
     st.session_state.data["mp"] = 100 
@@ -421,45 +443,64 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🗡️ QUESTS", "📊 STATUS", "
 with tab1:
     st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
     
-    def run_quest(cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
+    def run_quest(quest_id, cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
         final_cost = round(max(0, cost - mp_red) if int_g > 0 else cost, 1)
         
         if st.session_state.data["mp"] >= final_cost:
+            # 1. Atualiza Streak e Pega Multiplicador
+            streak_count = update_quest_streak(quest_id)
+            s_mult = get_streak_multiplier(quest_id)
+            
+            # 2. Executa Mudanças
             st.session_state.data["mp"] -= final_cost
             stats = st.session_state.data["stats"]
             stats["STR"] += str_g; stats["INT"] += int_g; stats["AGI"] += agi_g
             stats["VIT"] += vit_g; stats["CHA"] += cha_g; stats["SEN"] += sen_g
             
-            final_xp = int(xp * (1 + xp_boost))
+            # 3. Cálculo de Ganhos com Multiplicador de Streak
+            total_multiplier = xp_boost + s_mult
+            final_xp = int(xp * (1 + total_multiplier))
             final_coins = int(coins * (1 + coin_boost))
-            add_xp(final_xp, final_coins, msg)
+            
+            feedback = f"{msg} | Streak: 🔥{streak_count}"
+            if s_mult > 0: feedback += f" (+{int(s_mult*100)}% Bônus)"
+            
+            add_xp(final_xp, final_coins, feedback)
             st.rerun()
         else:
             st.error(f"Mana Insuficiente! Falta {round(final_cost - st.session_state.data['mp'], 1)} MP.")
 
-    # Missões Organizadas
+    # Função Auxiliar para criar o Card com Streak
+    def quest_card(quest_id, label, subtext, key, cost, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc):
+        streak = st.session_state.data["streaks"].get(quest_id, {}).get("count", 0)
+        mult = get_streak_multiplier(quest_id)
+        
+        # Define se o card brilha (Streak >= 3)
+        aura_class = "streak-aura" if streak >= 3 else ""
+        flame = f" <span style='color:#ff4b4b;'>🔥{streak}</span>" if streak > 0 else ""
+        bonus_text = f"<br><small style='color:#ffcc00;'>+{int(mult*100)}% XP Combo</small>" if mult > 0 else ""
+        
+        st.markdown(f"""
+            <div class='quest-card {aura_class}'>
+                <strong>{label}</strong>{flame}<br>
+                <small>{subtext}</small>{bonus_text}
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("EXECUTAR", key=key, use_container_width=True):
+            run_quest(quest_id, cost, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc)
+
+    # Grid de Missões
     r1c1, r1c2, r1c3 = st.columns(3)
-    with r1c1:
-        st.markdown(f"<div class='quest-card'>🏋️ TREINO PESADO<br><small>20 MP | +0.5 STR</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q1", use_container_width=True): run_quest(20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
-    with r1c2:
-        cost_int = round(max(0, 15 - mp_red), 1)
-        st.markdown(f"<div class='quest-card'>📖 ESTUDO CASO<br><small>{cost_int} MP | +0.5 INT</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q2", use_container_width=True): run_quest(15, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
-    with r1c3:
-        st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>0 MP | +0.2 VIT</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q3", use_container_width=True): run_quest(0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
+    with r1c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP | +0.5 STR", "q1", 20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
+    with r1c2: 
+        c_int = round(max(0, 15 - mp_red), 1)
+        quest_card("estudo", "📖 ESTUDO CASO", f"{c_int} MP | +0.5 INT", "q2", 15, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
+    with r1c3: quest_card("suple", "💊 SUPLEMENTAÇÃO", "0 MP | +0.2 VIT", "q3", 0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
 
     r2c1, r2c2, r2c3 = st.columns(3)
-    with r2c1:
-        st.markdown("<div class='quest-card'>🏠 ARRUMAR BASE<br><small>10 MP | +0.3 AGI</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q4", use_container_width=True): run_quest(10, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
-    with r2c2:
-        st.markdown("<div class='quest-card'>🗣️ COMUNICAÇÃO<br><small>10 MP | +0.3 CHA</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q5", use_container_width=True): run_quest(10, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
-    with r2c3:
-        st.markdown("<div class='quest-card'>🎓 PLANTÃO/PRÁTICA<br><small>25 MP | +0.6 SEN</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q6", use_container_width=True): run_quest(25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
+    with r2c1: quest_card("base", "🏠 ARRUMAR BASE", "10 MP | +0.3 AGI", "q4", 10, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
+    with r2c2: quest_card("comun", "🗣️ COMUNICAÇÃO", "10 MP | +0.3 CHA", "q5", 10, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
+    with r2c3: quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP | +0.6 SEN", "q6", 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
 
     st.divider()
     if st.button("💤 SONO REPARADOR", use_container_width=True):
@@ -469,8 +510,6 @@ with tab1:
 
 with tab2:
     st.markdown(f"### 📊 FICHA TÉCNICA (ATRIBUTOS REAIS)")
-    
-    # Mapa de Tradução e Clareza
     attr_map = {
         "STR": ("💪 Força", "Poder físico e hipertrofia"),
         "INT": ("🧠 Inteligência", "Conhecimento médico e estudos"),
@@ -479,16 +518,12 @@ with tab2:
         "CHA": ("🗣️ Carisma", "Comunicação e liderança"),
         "SEN": ("👁️ Percepção", "Sensibilidade e prática clínica")
     }
-
     col_stats_left, col_stats_right = st.columns(2)
-    
     for i, (stat, (name, desc)) in enumerate(attr_map.items()):
         base_val = round(st.session_state.data["stats"][stat], 1)
         total_val = round(stats_totais[stat], 1)
         bonus = round(total_val - base_val, 1)
-        
         target_col = col_stats_left if i < 3 else col_stats_right
-        
         with target_col:
             st.markdown(f"""
                 <div style='background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid {rank_info['color']}'>
@@ -502,7 +537,6 @@ with tab2:
                     </div>
                 </div>
             """, unsafe_allow_html=True)
-
     if st.session_state.data["points"] > 0:
         st.divider()
         st.success(f"✨ PONTOS DISPONÍVEIS: {st.session_state.data['points']}")
@@ -559,11 +593,6 @@ with tab5:
                     st.session_state.data["inventory"].append(name)
                     st.rerun()
                 else: st.error("Moedas insuficientes.")
-
-with tab6:
-    st.markdown("### 📜 REGISTROS DE AKASHA")
-    for log in reversed(st.session_state.data["history"][-15:]):
-        st.write(f"🛡️ {log}")
 
 with tab6:
     st.markdown("### 📜 REGISTROS DE AKASHA")
