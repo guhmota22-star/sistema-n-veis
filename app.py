@@ -107,7 +107,7 @@ EQUIPMENT_DB = {
     "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"}
 }
 
-# 2. Biblioteca de Conquistas (Incluindo Disciplina de Ferro)
+# 2. Biblioteca de Conquistas
 ACHIEVEMENTS_DB = {
     "Mestre do Anki": {"req": ("INT", 50), "title": "O Erudito", "desc": "+5% XP em Estudos"},
     "Titã de Diamantina": {"req": ("STR", 50), "title": "O Colosso", "hp_bonus": 5, "desc": "+5 HP Máximo"},
@@ -117,30 +117,25 @@ ACHIEVEMENTS_DB = {
     "Disciplina de Ferro": {"streak_req": 7, "title": "O Inabalável", "desc": "Mantenha um Streak de 7 dias"}
 }
 
+# 3. Definição das Funções (Precisam vir ANTES de serem usadas)
+def get_rank_info(level):
+    """Define a aura, a cor e o Título do Monarca baseado no nível"""
+    if level < 10: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
+    if level < 20: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
+    if level < 30: return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)", "title": "Residente Aspirante"}
+    if level < 40: return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)", "title": "Mestre da Clínica"}
+    if level < 50: return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
+    return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano da Medicina"}
+
 def get_initial_data():
     return {
         "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
         "last_access": str(datetime.date.today()),
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
         "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
-        "achievements": [], "active_title": None, "history": [],
-        "streaks": {} 
+        "achievements": [], "active_title": None, "history": [], "streaks": {} 
     }
 
-# 3. Inicialização e Lógica de Auto-Reparo
-if 'data' not in st.session_state:
-    st.session_state.data = get_initial_data()
-else:
-    keys_to_check = {
-        "achievements": [], "active_title": None, "inventory": [], 
-        "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
-        "streaks": {} 
-    }
-    for key, default in keys_to_check.items():
-        if key not in st.session_state.data:
-            st.session_state.data[key] = default
-
-# 4. Lógica de Sequência (Streaks)
 def update_quest_streak(quest_id):
     hoje = datetime.date.today()
     ontem = hoje - datetime.timedelta(days=1)
@@ -159,77 +154,61 @@ def update_quest_streak(quest_id):
 
 def get_streak_multiplier(quest_id):
     count = st.session_state.data["streaks"].get(quest_id, {}).get("count", 0)
-    if count >= 3:
-        return min(0.50, (count - 2) * 0.05)
+    if count >= 3: return min(0.50, (count - 2) * 0.05)
     return 0.0
 
-# 5. Funções Core: Verificação Dinâmica de Conquistas
 def check_achievements():
     novas = []
     data = st.session_state.data
-    base_stats = data["stats"]
-    streaks = data["streaks"]
-
     for nome, info in ACHIEVEMENTS_DB.items():
         if nome not in data["achievements"]:
-            # Verificação por Atributo
             if "req" in info:
                 attr, meta = info["req"]
-                if base_stats[attr] >= meta:
-                    data["achievements"].append(nome)
-                    novas.append(nome)
-            
-            # Verificação por Sequência (Streak)
+                if data["stats"][attr] >= meta:
+                    data["achievements"].append(nome); novas.append(nome)
             if "streak_req" in info:
-                meta = info["streak_req"]
-                # Se qualquer missão no seu checklist atingir o meta (ex: 7 dias)
-                if any(s.get("count", 0) >= meta for s in streaks.values()):
-                    data["achievements"].append(nome)
-                    novas.append(nome)
+                if any(s.get("count", 0) >= info["streak_req"] for s in data["streaks"].values()):
+                    data["achievements"].append(nome); novas.append(nome)
     return novas
 
 def get_total_stats():
+    # Aqui resolvemos os números gigantes arredondando a base
     base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
     hp_extra = 0
     equipped = st.session_state.data["equipped"]
-    unlocked = st.session_state.data["achievements"]
     for slot, item_name in equipped.items():
         if item_name in EQUIPMENT_DB:
             item = EQUIPMENT_DB[item_name]
             for stat in base: base[stat] = round(base[stat] + item.get(f"bonus_{stat.lower()}", 0), 1)
             hp_extra += item.get("hp_max", 0)
-    for ach in unlocked:
+    for ach in st.session_state.data["achievements"]:
         if ach in ACHIEVEMENTS_DB:
             hp_extra += ACHIEVEMENTS_DB[ach].get("hp_bonus", 0)
             if "vit_mult" in ACHIEVEMENTS_DB[ach]: base["VIT"] = round(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"], 1)
     return base, round(hp_extra, 1)
 
-# Execução Core
+# 4. Inicialização Segura
+if 'data' not in st.session_state:
+    st.session_state.data = get_initial_data()
+else:
+    # Reparo de Save
+    for key, default in {"achievements": [], "active_title": None, "inventory": [], "equipped": {}, "streaks": {}}.items():
+        if key not in st.session_state.data: st.session_state.data[key] = default
+
+# 5. Execução da Lógica Core (Onde o NameError acontecia)
 novas_conquistas = check_achievements()
-for ach in novas_conquistas:
-    st.toast(f"🏆 CONQUISTA DESBLOQUEADA: {ach}", icon="🌟")
+for ach in novas_conquistas: st.toast(f"🏆 CONQUISTA: {ach}", icon="🌟")
 
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_bonus = get_total_stats()
 
-# Injeção de Estilo
-st.markdown(f"""
-    <style>
-    h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}
-    .stButton>button {{ border-color: {rank_info['color']} !important; color: {rank_info['color']} !important; }}
-    .stButton>button:hover {{ background-color: {rank_info['color']} !important; color: black !important; box-shadow: 0 0 20px {rank_info['color']} !important; }}
-    div[st-ui="stProgress"] > div > div > div {{ background-color: {rank_info['color']} !important; }}
-    .streak-aura {{ box-shadow: 0 0 15px {rank_info['color']}; border: 1px solid {rank_info['color']} !important; }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# Regeneração
+# CSS e Regeneração
+st.markdown(f"<style>h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}</style>", unsafe_allow_html=True)
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
     st.session_state.data["mp"] = 100 
     st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 20)
     st.session_state.data["last_access"] = hoje
-    st.toast(f"☀️ Ciclo Resetado! Bom plantão, {rank_info['title']}!", icon="🔷")
     
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
 
