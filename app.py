@@ -107,7 +107,7 @@ EQUIPMENT_DB = {
     "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"}
 }
 
-# 2. Biblioteca de Conquistas
+# 2. Biblioteca de Conquistas e Contratos Reais
 ACHIEVEMENTS_DB = {
     "Mestre do Anki": {"req": ("INT", 50), "title": "O Erudito", "desc": "+5% XP em Estudos"},
     "Titã de Diamantina": {"req": ("STR", 50), "title": "O Colosso", "hp_bonus": 5, "desc": "+5 HP Máximo"},
@@ -117,9 +117,17 @@ ACHIEVEMENTS_DB = {
     "Disciplina de Ferro": {"streak_req": 7, "title": "O Inabalável", "desc": "Mantenha um Streak de 7 dias"}
 }
 
-# 3. Definição das Funções (Precisam vir ANTES de serem usadas)
+# Definição Padrão dos Contratos Reais डिस्कसados
+DEFAULT_REAL_REWARDS = [
+    {"id": "rank_c", "name": "Scrub Premium ou Esteto Novo", "type": "lvl", "req": 20, "status": "Bloqueado"},
+    {"id": "mestria_int", "name": "Livro/Curso de Residência", "type": "stat", "target": "INT", "req": 50, "status": "Bloqueado"},
+    {"id": "forca_str", "name": "Acessório de Elite (Cinto LPO/Straps)", "type": "stat", "target": "STR", "req": 50, "status": "Bloqueado"},
+    {"id": "resiliencia", "name": "Final de Semana de Descanso Total", "type": "streak", "req": 21, "status": "Bloqueado"},
+    {"id": "tesouro", "name": "Jantar no Restaurante Favorito", "type": "coins", "req": 5000, "status": "Bloqueado"}
+]
+
+# 3. Definição das Funções
 def get_rank_info(level):
-    """Define a aura, a cor e o Título do Monarca baseado no nível"""
     if level < 10: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
     if level < 20: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
     if level < 30: return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)", "title": "Residente Aspirante"}
@@ -133,7 +141,8 @@ def get_initial_data():
         "last_access": str(datetime.date.today()),
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
         "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
-        "achievements": [], "active_title": None, "history": [], "streaks": {} 
+        "achievements": [], "active_title": None, "history": [], "streaks": {},
+        "real_rewards": DEFAULT_REAL_REWARDS # Inicializa os contratos
     }
 
 def update_quest_streak(quest_id):
@@ -145,11 +154,9 @@ def update_quest_streak(quest_id):
     streak_data = st.session_state.data["streaks"][quest_id]
     last_date = datetime.datetime.strptime(streak_data["last_date"], "%Y-%m-%d").date()
     if last_date == ontem:
-        streak_data["count"] += 1
-        streak_data["last_date"] = str(hoje)
+        streak_data["count"] += 1; streak_data["last_date"] = str(hoje)
     elif last_date < ontem:
-        streak_data["count"] = 1
-        streak_data["last_date"] = str(hoje)
+        streak_data["count"] = 1; streak_data["last_date"] = str(hoje)
     return streak_data["count"]
 
 def get_streak_multiplier(quest_id):
@@ -171,8 +178,25 @@ def check_achievements():
                     data["achievements"].append(nome); novas.append(nome)
     return novas
 
+# Nova Função: Verificação de Contratos Reais
+def check_real_rewards():
+    data = st.session_state.data
+    liberados = 0
+    for reward in data["real_rewards"]:
+        if reward["status"] == "Bloqueado":
+            unlocked = False
+            if reward["type"] == "lvl" and data["lvl"] >= reward["req"]: unlocked = True
+            elif reward["type"] == "coins" and data["coins"] >= reward["req"]: unlocked = True
+            elif reward["type"] == "stat" and data["stats"][reward["target"]] >= reward["req"]: unlocked = True
+            elif reward["type"] == "streak":
+                if any(s.get("count", 0) >= reward["req"] for s in data["streaks"].values()): unlocked = True
+            
+            if unlocked:
+                reward["status"] = "Liberado"
+                liberados += 1
+    return liberados
+
 def get_total_stats():
-    # Aqui resolvemos os números gigantes arredondando a base
     base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
     hp_extra = 0
     equipped = st.session_state.data["equipped"]
@@ -191,18 +215,23 @@ def get_total_stats():
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Reparo de Save
-    for key, default in {"achievements": [], "active_title": None, "inventory": [], "equipped": {}, "streaks": {}}.items():
+    # Auto-Reparo: Garante que real_rewards exista no save antigo
+    patch = {"achievements": [], "active_title": None, "inventory": [], "equipped": {}, "streaks": {}, "real_rewards": DEFAULT_REAL_REWARDS}
+    for key, default in patch.items():
         if key not in st.session_state.data: st.session_state.data[key] = default
 
-# 5. Execução da Lógica Core (Onde o NameError acontecia)
+# 5. Execução da Lógica Core
 novas_conquistas = check_achievements()
 for ach in novas_conquistas: st.toast(f"🏆 CONQUISTA: {ach}", icon="🌟")
+
+novos_liberados = check_real_rewards()
+if novos_liberados > 0:
+    st.toast(f"🎁 {novos_liberados} CONTRATO(S) REAL(IS) LIBERADO(S)!", icon="💎")
 
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_bonus = get_total_stats()
 
-# CSS e Regeneração
+# CSS e Regeneração Temporal
 st.markdown(f"<style>h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}</style>", unsafe_allow_html=True)
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
@@ -415,9 +444,12 @@ for slot, item_name in st.session_state.data["equipped"].items():
         coin_boost += item.get("coin_mult", 0)
 
 if "Mestre do Anki" in unlocked: xp_boost += 0.05
-if "Voz do Paciente" in unlocked: coin_boost += 0.10
+if "Voz de Paciente" in unlocked: coin_boost += 0.10
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🗡️ QUESTS", "📊 STATUS", "🎒 ARSENAL", "🏆 CONQUISTAS", "🛒 MERCADO", "📜 LOGS"])
+# Adicionado: Aba de Contratos (7 Abas no total agora)
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "🗡️ QUESTS", "📊 STATUS", "🎒 ARSENAL", "🏆 CONQUISTAS", "💎 CONTRATOS", "🛒 MERCADO", "📜 LOGS"
+])
 
 with tab1:
     st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
@@ -426,17 +458,14 @@ with tab1:
         final_cost = round(max(0, cost - mp_red) if int_g > 0 else cost, 1)
         
         if st.session_state.data["mp"] >= final_cost:
-            # 1. Atualiza Streak e Pega Multiplicador
             streak_count = update_quest_streak(quest_id)
             s_mult = get_streak_multiplier(quest_id)
             
-            # 2. Executa Mudanças
             st.session_state.data["mp"] -= final_cost
             stats = st.session_state.data["stats"]
             stats["STR"] += str_g; stats["INT"] += int_g; stats["AGI"] += agi_g
             stats["VIT"] += vit_g; stats["CHA"] += cha_g; stats["SEN"] += sen_g
             
-            # 3. Cálculo de Ganhos com Multiplicador de Streak
             total_multiplier = xp_boost + s_mult
             final_xp = int(xp * (1 + total_multiplier))
             final_coins = int(coins * (1 + coin_boost))
@@ -449,12 +478,9 @@ with tab1:
         else:
             st.error(f"Mana Insuficiente! Falta {round(final_cost - st.session_state.data['mp'], 1)} MP.")
 
-    # Função Auxiliar para criar o Card com Streak
     def quest_card(quest_id, label, subtext, key, cost, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc):
         streak = st.session_state.data["streaks"].get(quest_id, {}).get("count", 0)
         mult = get_streak_multiplier(quest_id)
-        
-        # Define se o card brilha (Streak >= 3)
         aura_class = "streak-aura" if streak >= 3 else ""
         flame = f" <span style='color:#ff4b4b;'>🔥{streak}</span>" if streak > 0 else ""
         bonus_text = f"<br><small style='color:#ffcc00;'>+{int(mult*100)}% XP Combo</small>" if mult > 0 else ""
@@ -468,7 +494,6 @@ with tab1:
         if st.button("EXECUTAR", key=key, use_container_width=True):
             run_quest(quest_id, cost, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc)
 
-    # Grid de Missões
     r1c1, r1c2, r1c3 = st.columns(3)
     with r1c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP | +0.5 STR", "q1", 20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
     with r1c2: 
@@ -561,7 +586,36 @@ with tab4:
                         st.session_state.data["active_title"] = title
                         st.rerun()
 
+# --- NOVA ABA: CONTRATOS DE HONRA ---
 with tab5:
+    st.markdown("### 💎 CONTRATOS DE HONRA (RECOMPENSAS REAIS)")
+    st.info("Bata as metas no app para liberar prêmios no mundo físico. Use com integridade!")
+    
+    for reward in st.session_state.data["real_rewards"]:
+        status = reward["status"]
+        color = rank_info['color'] if status == "Liberado" else ("#27ae60" if status == "Resgatado" else "#555")
+        icon = "🔒" if status == "Bloqueado" else ("✅" if status == "Resgatado" else "🎁")
+        
+        with st.container():
+            st.markdown(f"""
+                <div style='border: 1px solid {color}; padding: 15px; border-radius: 10px; margin-bottom: 10px; background: rgba(0,0,0,0.1); border-left: 5px solid {color};'>
+                    <div style='display: flex; justify-content: space-between; align-items: center;'>
+                        <div>
+                            <span style='font-size: 16px; font-weight: bold; color: {color};'>{icon} {reward['name']}</span><br>
+                            <small style='opacity: 0.7;'>Requisito: {reward['req']} {reward.get('target', reward['type']).upper()}</small>
+                        </div>
+                        <span style='font-size: 12px; font-weight: bold; color: {color};'>{status.upper()}</span>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            if status == "Liberado":
+                if st.button(f"RESGATAR RECOMPENSA REAL", key=f"resgate_{reward['id']}", use_container_width=True):
+                    reward["status"] = "Resgatado"
+                    st.success(f"Contrato cumprido! Aproveite seu prêmio: {reward['name']}")
+                    st.rerun()
+
+with tab6:
     st.markdown("### 🛒 MERCADO DE INVESTIMENTOS")
     for name, info in EQUIPMENT_DB.items():
         if name not in st.session_state.data["inventory"]:
@@ -573,7 +627,7 @@ with tab5:
                     st.rerun()
                 else: st.error("Moedas insuficientes.")
 
-with tab6:
+with tab7:
     st.markdown("### 📜 REGISTROS DE AKASHA")
     for log in reversed(st.session_state.data["history"][-15:]):
         st.write(f"🛡️ {log}")
