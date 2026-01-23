@@ -101,7 +101,7 @@ st.markdown("""
 EQUIPMENT_DB = {
     "Assinatura de Banco de Questões": {"slot": "head", "bonus_int": 2, "xp_mult": 0.15, "desc": "+15% XP em Estudos"},
     "Tênis de Plantão": {"slot": "body", "hp_max": 20, "desc": "+20 HP Máximo"},
-    "Estetoscópio de Elite": {"slot": "hands", "bonus_sen": 5, "desc": "+5 Percepção Clínica"},
+    "Estetoscóscope de Elite": {"slot": "hands", "bonus_sen": 5, "desc": "+5 Percepção Clínica"},
     "Cinto de LPO / Straps": {"slot": "hands", "bonus_str": 5, "desc": "+5 Força nos Treinos"},
     "Manual de Condutas": {"slot": "accessory", "mp_reduction": 5, "desc": "-5 MP de custo em INT"},
     "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"}
@@ -117,7 +117,7 @@ ACHIEVEMENTS_DB = {
     "Disciplina de Ferro": {"streak_req": 7, "title": "O Inabalável", "desc": "Mantenha um Streak de 7 dias"}
 }
 
-# Definição Padrão dos Contratos Reais डिस्कसados
+# Definição Padrão dos Contratos Reais
 DEFAULT_REAL_REWARDS = [
     {"id": "rank_c", "name": "Scrub Premium ou Esteto Novo", "type": "lvl", "req": 20, "status": "Bloqueado"},
     {"id": "mestria_int", "name": "Livro/Curso de Residência", "type": "stat", "target": "INT", "req": 50, "status": "Bloqueado"},
@@ -126,7 +126,7 @@ DEFAULT_REAL_REWARDS = [
     {"id": "tesouro", "name": "Jantar no Restaurante Favorito", "type": "coins", "req": 5000, "status": "Bloqueado"}
 ]
 
-# 3. Definição das Funções
+# 3. Definição das Funções Core
 def get_rank_info(level):
     if level < 10: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
     if level < 20: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
@@ -142,7 +142,7 @@ def get_initial_data():
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
         "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
         "achievements": [], "active_title": None, "history": [], "streaks": {},
-        "real_rewards": DEFAULT_REAL_REWARDS # Inicializa os contratos
+        "real_rewards": DEFAULT_REAL_REWARDS
     }
 
 def update_quest_streak(quest_id):
@@ -178,7 +178,6 @@ def check_achievements():
                     data["achievements"].append(nome); novas.append(nome)
     return novas
 
-# Nova Função: Verificação de Contratos Reais
 def check_real_rewards():
     data = st.session_state.data
     liberados = 0
@@ -190,32 +189,36 @@ def check_real_rewards():
             elif reward["type"] == "stat" and data["stats"][reward["target"]] >= reward["req"]: unlocked = True
             elif reward["type"] == "streak":
                 if any(s.get("count", 0) >= reward["req"] for s in data["streaks"].values()): unlocked = True
-            
             if unlocked:
-                reward["status"] = "Liberado"
-                liberados += 1
+                reward["status"] = "Liberado"; liberados += 1
     return liberados
 
+# FUNÇÃO ATUALIZADA: Agora calcula HP máximo dinâmico
 def get_total_stats():
+    # Bônus de vida por nível: +5 HP para cada nível acima do 1
+    lvl_bonus_hp = (st.session_state.data["lvl"] - 1) * 5
     base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
-    hp_extra = 0
+    
+    hp_extra = lvl_bonus_hp
     equipped = st.session_state.data["equipped"]
     for slot, item_name in equipped.items():
         if item_name in EQUIPMENT_DB:
             item = EQUIPMENT_DB[item_name]
             for stat in base: base[stat] = round(base[stat] + item.get(f"bonus_{stat.lower()}", 0), 1)
             hp_extra += item.get("hp_max", 0)
+    
     for ach in st.session_state.data["achievements"]:
         if ach in ACHIEVEMENTS_DB:
             hp_extra += ACHIEVEMENTS_DB[ach].get("hp_bonus", 0)
-            if "vit_mult" in ACHIEVEMENTS_DB[ach]: base["VIT"] = round(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"], 1)
+            if "vit_mult" in ACHIEVEMENTS_DB[ach]: 
+                base["VIT"] = round(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"], 1)
+                
     return base, round(hp_extra, 1)
 
 # 4. Inicialização Segura
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Auto-Reparo: Garante que real_rewards exista no save antigo
     patch = {"achievements": [], "active_title": None, "inventory": [], "equipped": {}, "streaks": {}, "real_rewards": DEFAULT_REAL_REWARDS}
     for key, default in patch.items():
         if key not in st.session_state.data: st.session_state.data[key] = default
@@ -231,12 +234,14 @@ if novos_liberados > 0:
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_bonus = get_total_stats()
 
-# CSS e Regeneração Temporal
+# Regeneração Temporal Atualizada
 st.markdown(f"<style>h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}</style>", unsafe_allow_html=True)
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
     st.session_state.data["mp"] = 100 
-    st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 20)
+    # HP máximo dinâmico: 100 base + bônus calculados
+    max_hp_calc = 100 + hp_bonus
+    st.session_state.data["hp"] = min(max_hp_calc, st.session_state.data["hp"] + 20)
     st.session_state.data["last_access"] = hoje
     
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
@@ -446,7 +451,6 @@ for slot, item_name in st.session_state.data["equipped"].items():
 if "Mestre do Anki" in unlocked: xp_boost += 0.05
 if "Voz de Paciente" in unlocked: coin_boost += 0.10
 
-# Adicionado: Aba de Contratos (7 Abas no total agora)
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🗡️ QUESTS", "📊 STATUS", "🎒 ARSENAL", "🏆 CONQUISTAS", "💎 CONTRATOS", "🛒 MERCADO", "📜 LOGS"
 ])
@@ -454,14 +458,19 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 with tab1:
     st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
     
-    def run_quest(quest_id, cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
-        final_cost = round(max(0, cost - mp_red) if int_g > 0 else cost, 1)
+    # run_quest ATUALIZADA: Agora processa Custo de HP
+    def run_quest(quest_id, mp_cost, hp_cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
+        final_mp_cost = round(max(0, mp_cost - mp_red) if int_g > 0 else mp_cost, 1)
         
-        if st.session_state.data["mp"] >= final_cost:
+        # Verifica se tem MP e HP suficientes (HP não pode zerar na quest)
+        if st.session_state.data["mp"] >= final_mp_cost and st.session_state.data["hp"] > hp_cost:
             streak_count = update_quest_streak(quest_id)
             s_mult = get_streak_multiplier(quest_id)
             
-            st.session_state.data["mp"] -= final_cost
+            # Aplica os custos de energia e vida
+            st.session_state.data["mp"] -= final_mp_cost
+            st.session_state.data["hp"] -= hp_cost
+            
             stats = st.session_state.data["stats"]
             stats["STR"] += str_g; stats["INT"] += int_g; stats["AGI"] += agi_g
             stats["VIT"] += vit_g; stats["CHA"] += cha_g; stats["SEN"] += sen_g
@@ -471,45 +480,58 @@ with tab1:
             final_coins = int(coins * (1 + coin_boost))
             
             feedback = f"{msg} | Streak: 🔥{streak_count}"
-            if s_mult > 0: feedback += f" (+{int(s_mult*100)}% Bônus)"
+            if hp_cost > 0: feedback += f" | ❤️ -{hp_cost} HP"
             
             add_xp(final_xp, final_coins, feedback)
             st.rerun()
         else:
-            st.error(f"Mana Insuficiente! Falta {round(final_cost - st.session_state.data['mp'], 1)} MP.")
+            if st.session_state.data["hp"] <= hp_cost:
+                st.error(f"⚠️ EXAUSTÃO EXTREMA! Você precisa descansar ou suplementar. (HP Insuficiente)")
+            else:
+                st.error(f"Mana Insuficiente! Falta {round(final_mp_cost - st.session_state.data['mp'], 1)} MP.")
 
-    def quest_card(quest_id, label, subtext, key, cost, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc):
+    # quest_card ATUALIZADA: Exibe custo de HP
+    def quest_card(quest_id, label, subtext, key, mp_c, hp_c, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc):
         streak = st.session_state.data["streaks"].get(quest_id, {}).get("count", 0)
         mult = get_streak_multiplier(quest_id)
         aura_class = "streak-aura" if streak >= 3 else ""
         flame = f" <span style='color:#ff4b4b;'>🔥{streak}</span>" if streak > 0 else ""
-        bonus_text = f"<br><small style='color:#ffcc00;'>+{int(mult*100)}% XP Combo</small>" if mult > 0 else ""
+        
+        hp_display = f" | ❤️ {hp_c}" if hp_c > 0 else ""
         
         st.markdown(f"""
             <div class='quest-card {aura_class}'>
                 <strong>{label}</strong>{flame}<br>
-                <small>{subtext}</small>{bonus_text}
+                <small>{subtext}{hp_display}</small>
             </div>
         """, unsafe_allow_html=True)
         if st.button("EXECUTAR", key=key, use_container_width=True):
-            run_quest(quest_id, cost, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc)
+            run_quest(quest_id, mp_c, hp_c, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc)
 
+    # GRID DE MISSÕES COM DANO REAL
     r1c1, r1c2, r1c3 = st.columns(3)
-    with r1c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP | +0.5 STR", "q1", 20, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
+    with r1c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP", "q1", 20, 10, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
     with r1c2: 
         c_int = round(max(0, 15 - mp_red), 1)
-        quest_card("estudo", "📖 ESTUDO CASO", f"{c_int} MP | +0.5 INT", "q2", 15, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
-    with r1c3: quest_card("suple", "💊 SUPLEMENTAÇÃO", "0 MP | +0.2 VIT", "q3", 0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
+        quest_card("estudo", "📖 ESTUDO CASO", f"{c_int} MP", "q2", 15, 0, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
+    with r1c3: 
+        # Suplementação: Única quest que CURA o Monarca (+15 HP)
+        st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>0 MP | ❤️ +15 HP</small></div>", unsafe_allow_html=True)
+        if st.button("EXECUTAR", key="q3", use_container_width=True):
+            st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 15)
+            run_quest("suple", 0, 0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
 
     r2c1, r2c2, r2c3 = st.columns(3)
-    with r2c1: quest_card("base", "🏠 ARRUMAR BASE", "10 MP | +0.3 AGI", "q4", 10, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
-    with r2c2: quest_card("comun", "🗣️ COMUNICAÇÃO", "10 MP | +0.3 CHA", "q5", 10, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
-    with r2c3: quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP | +0.6 SEN", "q6", 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
+    with r2c1: quest_card("base", "🏠 ARRUMAR BASE", "10 MP", "q4", 10, 0, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
+    with r2c2: quest_card("comun", "🗣️ COMUNICAÇÃO", "10 MP", "q5", 10, 0, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
+    with r2c3: # Plantão: Desgaste máximo (25 de dano)
+        quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP", "q6", 25, 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
 
     st.divider()
     if st.button("💤 SONO REPARADOR", use_container_width=True):
-        st.session_state.data["hp"] = round(100 + hp_bonus, 1)
+        st.session_state.data["hp"] = round(100 + hp_bonus, 1) # Restaura até o novo Max HP
         st.session_state.data["mp"] = 100
+        st.toast("Vitalidade e Mana Restauradas!", icon="🌙")
         st.rerun()
 
 with tab2:
@@ -586,16 +608,13 @@ with tab4:
                         st.session_state.data["active_title"] = title
                         st.rerun()
 
-# --- NOVA ABA: CONTRATOS DE HONRA ---
 with tab5:
     st.markdown("### 💎 CONTRATOS DE HONRA (RECOMPENSAS REAIS)")
     st.info("Bata as metas no app para liberar prêmios no mundo físico. Use com integridade!")
-    
     for reward in st.session_state.data["real_rewards"]:
         status = reward["status"]
         color = rank_info['color'] if status == "Liberado" else ("#27ae60" if status == "Resgatado" else "#555")
         icon = "🔒" if status == "Bloqueado" else ("✅" if status == "Resgatado" else "🎁")
-        
         with st.container():
             st.markdown(f"""
                 <div style='border: 1px solid {color}; padding: 15px; border-radius: 10px; margin-bottom: 10px; background: rgba(0,0,0,0.1); border-left: 5px solid {color};'>
@@ -608,7 +627,6 @@ with tab5:
                     </div>
                 </div>
             """, unsafe_allow_html=True)
-            
             if status == "Liberado":
                 if st.button(f"RESGATAR RECOMPENSA REAL", key=f"resgate_{reward['id']}", use_container_width=True):
                     reward["status"] = "Resgatado"
@@ -631,3 +649,4 @@ with tab7:
     st.markdown("### 📜 REGISTROS DE AKASHA")
     for log in reversed(st.session_state.data["history"][-15:]):
         st.write(f"🛡️ {log}")
+        
