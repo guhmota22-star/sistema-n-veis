@@ -126,7 +126,7 @@ DEFAULT_REAL_REWARDS = [
     {"id": "tesouro", "name": "Jantar no Restaurante Favorito", "type": "coins", "req": 5000, "status": "Bloqueado"}
 ]
 
-# 3. Definição das Funções (Definir ANTES de usar para evitar NameError)
+# 3. Definição das Funções Core
 def get_rank_info(level):
     if level < 10: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
     if level < 20: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
@@ -194,58 +194,59 @@ def check_real_rewards():
     return liberados
 
 def get_total_stats():
-    # Bônus de vida por nível e arredondamento preventivo (Resolve image_61f3e0)
+    # Bônus de vida por nível
     lvl_bonus_hp = (st.session_state.data["lvl"] - 1) * 5
     base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
     hp_extra = lvl_bonus_hp
     equipped = st.session_state.data["equipped"]
     
     for slot, item_name in equipped.items():
-        if item_name in EQUIPMENT_DB: # Escudo anti-KeyError (Resolve image_b0acc9)
+        if item_name in EQUIPMENT_DB:
             item = EQUIPMENT_DB[item_name]
             for stat in base: base[stat] = round(base[stat] + item.get(f"bonus_{stat.lower()}", 0), 1)
             hp_extra += item.get("hp_max", 0)
     
+    # MP MAX DINÂMICO: Vinculado à Inteligência (Base 100 + 5 por ponto acima de 10)
+    mp_max_calc = round(100 + (base["INT"] - 10) * 5, 1)
+
     for ach in st.session_state.data["achievements"]:
         if ach in ACHIEVEMENTS_DB:
             hp_extra += ACHIEVEMENTS_DB[ach].get("hp_bonus", 0)
             if "vit_mult" in ACHIEVEMENTS_DB[ach]: 
                 base["VIT"] = round(base["VIT"] * ACHIEVEMENTS_DB[ach]["vit_mult"], 1)
-    return base, round(hp_extra, 1)
+    return base, round(hp_extra, 1), mp_max_calc
 
 # 4. Inicialização Segura e Reparo de Save
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Patch para chaves ausentes e limpeza de itens fantasmas
     patch = {"achievements": [], "active_title": None, "inventory": [], "equipped": {}, "streaks": {}, "real_rewards": DEFAULT_REAL_REWARDS}
     for key, default in patch.items():
         if key not in st.session_state.data: st.session_state.data[key] = default
-    
-    # Sanitização: Remove do save itens que não existem mais no DB (Fim dos KeyErrors)
     st.session_state.data["inventory"] = [i for i in st.session_state.data["inventory"] if i in EQUIPMENT_DB]
     for slot in st.session_state.data["equipped"]:
         if st.session_state.data["equipped"][slot] not in EQUIPMENT_DB:
             st.session_state.data["equipped"][slot] = None
 
-# 5. Execução da Lógica Core (Agora com todas as funções já definidas)
+# 5. Execução da Lógica Core
 novas_conquistas = check_achievements()
 for ach in novas_conquistas: st.toast(f"🏆 CONQUISTA: {ach}", icon="🌟")
 
 novos_liberados = check_real_rewards()
 if novos_liberados > 0: st.toast(f"🎁 {novos_liberados} CONTRATO(S) REAL(IS) LIBERADO(S)!", icon="💎")
 
-rank_info = get_rank_info(st.session_state.data["lvl"]) # Agora o NameError sumiu!
-stats_totais, hp_bonus = get_total_stats()
+rank_info = get_rank_info(st.session_state.data["lvl"])
+stats_totais, hp_bonus, mp_max_total = get_total_stats()
 
 # Estilos e Regeneração
 st.markdown(f"<style>h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}</style>", unsafe_allow_html=True)
 hoje = str(datetime.date.today())
 if st.session_state.data.get("last_access") != hoje:
-    st.session_state.data["mp"] = 100 
+    st.session_state.data["mp"] = mp_max_total # Restaura para o MP Max Dinâmico
     max_hp_calc = 100 + hp_bonus
     st.session_state.data["hp"] = min(max_hp_calc, st.session_state.data["hp"] + 20)
-    st.session_state.data["last_access"] = hoje    
+    st.session_state.data["last_access"] = hoje
+    
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
 
 with st.sidebar:
