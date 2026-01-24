@@ -383,16 +383,16 @@ with st.container():
         titulo_exibido = st.session_state.data.get("active_title") or rank_info['title']
         st.caption(f"🛡️ Título: {titulo_exibido}")
         
-        # Status de Vida com Arredondamento
+        # Status de Vida com Arredondamento (Respeita o Max HP dinâmico)
         hp_max_total = round(100 + hp_bonus, 1)
         hp_atual = round(st.session_state.data['hp'], 1)
         st.markdown(f"<span class='label-hp'>❤️ HP: {hp_atual}/{hp_max_total}</span>", unsafe_allow_html=True)
         st.progress(min(hp_atual / hp_max_total, 1.0))
         
-        # Status de Energia com Arredondamento
+        # --- ATUALIZADO: Status de Energia Dinâmico ---
         mp_atual = round(st.session_state.data['mp'], 1)
-        st.markdown(f"<span class='label-mp'>🔷 MP: {mp_atual}/100</span>", unsafe_allow_html=True)
-        st.progress(min(mp_atual / 100, 1.0))
+        st.markdown(f"<span class='label-mp'>🔷 MP: {mp_atual}/{mp_max_total}</span>", unsafe_allow_html=True)
+        st.progress(min(mp_atual / mp_max_total, 1.0))
 
     with c_hud2:
         st.markdown("### RECOMPENSAS")
