@@ -461,16 +461,13 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 with tab1:
     st.markdown(f"### ⚔️ QUADRO DE MISSÕES (RANK {rank_info['name']})")
     
-    # run_quest ATUALIZADA: Agora processa Custo de HP
     def run_quest(quest_id, mp_cost, hp_cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
         final_mp_cost = round(max(0, mp_cost - mp_red) if int_g > 0 else mp_cost, 1)
         
-        # Verifica se tem MP e HP suficientes (HP não pode zerar na quest)
         if st.session_state.data["mp"] >= final_mp_cost and st.session_state.data["hp"] > hp_cost:
             streak_count = update_quest_streak(quest_id)
             s_mult = get_streak_multiplier(quest_id)
             
-            # Aplica os custos de energia e vida
             st.session_state.data["mp"] -= final_mp_cost
             st.session_state.data["hp"] -= hp_cost
             
@@ -489,17 +486,15 @@ with tab1:
             st.rerun()
         else:
             if st.session_state.data["hp"] <= hp_cost:
-                st.error(f"⚠️ EXAUSTÃO EXTREMA! Você precisa descansar ou suplementar. (HP Insuficiente)")
+                st.error(f"⚠️ EXAUSTÃO EXTREMA! HP Insuficiente.")
             else:
                 st.error(f"Mana Insuficiente! Falta {round(final_mp_cost - st.session_state.data['mp'], 1)} MP.")
 
-    # quest_card ATUALIZADA: Exibe custo de HP
     def quest_card(quest_id, label, subtext, key, mp_c, hp_c, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc):
         streak = st.session_state.data["streaks"].get(quest_id, {}).get("count", 0)
         mult = get_streak_multiplier(quest_id)
         aura_class = "streak-aura" if streak >= 3 else ""
         flame = f" <span style='color:#ff4b4b;'>🔥{streak}</span>" if streak > 0 else ""
-        
         hp_display = f" | ❤️ {hp_c}" if hp_c > 0 else ""
         
         st.markdown(f"""
@@ -511,14 +506,12 @@ with tab1:
         if st.button("EXECUTAR", key=key, use_container_width=True):
             run_quest(quest_id, mp_c, hp_c, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc)
 
-    # GRID DE MISSÕES COM DANO REAL
     r1c1, r1c2, r1c3 = st.columns(3)
     with r1c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP", "q1", 20, 10, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
     with r1c2: 
         c_int = round(max(0, 15 - mp_red), 1)
         quest_card("estudo", "📖 ESTUDO CASO", f"{c_int} MP", "q2", 15, 0, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
     with r1c3: 
-        # Suplementação: Única quest que CURA o Monarca (+15 HP)
         st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>0 MP | ❤️ +15 HP</small></div>", unsafe_allow_html=True)
         if st.button("EXECUTAR", key="q3", use_container_width=True):
             st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 15)
@@ -527,14 +520,15 @@ with tab1:
     r2c1, r2c2, r2c3 = st.columns(3)
     with r2c1: quest_card("base", "🏠 ARRUMAR BASE", "10 MP", "q4", 10, 0, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
     with r2c2: quest_card("comun", "🗣️ COMUNICAÇÃO", "10 MP", "q5", 10, 0, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
-    with r2c3: # Plantão: Desgaste máximo (25 de dano)
-        quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP", "q6", 25, 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
+    with r2c3: quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP", "q6", 25, 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
 
     st.divider()
+
+    # ATUALIZAÇÃO: Sono agora respeita o MP Máximo calculado
     if st.button("💤 SONO REPARADOR", use_container_width=True):
-        st.session_state.data["hp"] = round(100 + hp_bonus, 1) # Restaura até o novo Max HP
-        st.session_state.data["mp"] = 100
-        st.toast("Vitalidade e Mana Restauradas!", icon="🌙")
+        st.session_state.data["hp"] = round(100 + hp_bonus, 1)
+        st.session_state.data["mp"] = mp_max_total 
+        st.toast(f"Status Restaurados! (MP Máx: {mp_max_total})", icon="🌙")
         st.rerun()
 
 with tab2:
@@ -613,7 +607,7 @@ with tab4:
 
 with tab5:
     st.markdown("### 💎 CONTRATOS DE HONRA (RECOMPENSAS REAIS)")
-    st.info("Bata as metas no app para liberar prêmios no mundo físico. Use com integridade!")
+    st.info("Bata as metas no app para liberar prêmios no mundo físico.")
     for reward in st.session_state.data["real_rewards"]:
         status = reward["status"]
         color = rank_info['color'] if status == "Liberado" else ("#27ae60" if status == "Resgatado" else "#555")
@@ -633,7 +627,6 @@ with tab5:
             if status == "Liberado":
                 if st.button(f"RESGATAR RECOMPENSA REAL", key=f"resgate_{reward['id']}", use_container_width=True):
                     reward["status"] = "Resgatado"
-                    st.success(f"Contrato cumprido! Aproveite seu prêmio: {reward['name']}")
                     st.rerun()
 
 with tab6:
@@ -651,5 +644,4 @@ with tab6:
 with tab7:
     st.markdown("### 📜 REGISTROS DE AKASHA")
     for log in reversed(st.session_state.data["history"][-15:]):
-        st.write(f"🛡️ {log}")
-        
+        st.write(f"🛡️ {log}")        
