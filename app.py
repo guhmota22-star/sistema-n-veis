@@ -389,7 +389,7 @@ with st.container():
         st.markdown(f"<span class='label-hp'>❤️ HP: {hp_atual}/{hp_max_total}</span>", unsafe_allow_html=True)
         st.progress(min(hp_atual / hp_max_total, 1.0))
         
-        # --- ATUALIZADO: Status de Energia Dinâmico ---
+        # Status de Energia Dinâmico
         mp_atual = round(st.session_state.data['mp'], 1)
         st.markdown(f"<span class='label-mp'>🔷 MP: {mp_atual}/{mp_max_total}</span>", unsafe_allow_html=True)
         st.progress(min(mp_atual / mp_max_total, 1.0))
@@ -413,24 +413,47 @@ with st.container():
             "VIT": "VITALIDADE", "CHA": "CARISMA", "SEN": "PERCEPÇÃO"
         }
         
-        # Gráfico de Radar com nomes completos e valores limpos
+        # Preparação dos dados: Fechando a geometria (repetindo o primeiro valor no final)
         labels = [attr_nomes.get(s, s) for s in stats_totais.keys()]
         values = [round(v, 1) for v in stats_totais.values()]
         
-        fig = go.Figure(data=go.Scatterpolar(
-            r=values,
-            theta=labels,
+        l_plot = labels + [labels[0]]
+        v_plot = values + [values[0]]
+        
+        # Gráfico de Radar Neon Estilizado
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatterpolar(
+            r=v_plot,
+            theta=l_plot,
             fill='toself',
-            line_color=rank_info['color'],
-            fillcolor=rank_info['glow']
+            line=dict(color=rank_info['color'], width=3), # Borda Neon
+            fillcolor=rank_info['glow'], # Preenchimento dinâmico
+            marker=dict(color=rank_info['color'], size=8),
+            hoverinfo='r+theta'
         ))
         
         fig.update_layout(
-            polar=dict(radialaxis=dict(visible=False, range=[0, 50])),
-            paper_bgcolor="rgba(0,0,0,0)",
+            polar=dict(
+                bgcolor="rgba(0,0,0,0)", # Fundo transparente do radar
+                radialaxis=dict(
+                    visible=True, 
+                    range=[0, max(values) + 10], 
+                    showticklabels=False,
+                    gridcolor="rgba(255,255,255,0.1)" # Linhas de grade sutis
+                ),
+                angularaxis=dict(
+                    gridcolor="rgba(255,255,255,0.1)",
+                    linecolor="rgba(255,255,255,0.2)",
+                    tickfont=dict(size=11, color="#ddd", family="Courier New") # Fonte Terminal
+                )
+            ),
+            paper_bgcolor="rgba(0,0,0,0)", # Dashboard transparente
+            plot_bgcolor="rgba(0,0,0,0)",
             font_color="white",
-            height=220,
-            margin=dict(t=30, b=20, l=40, r=40)
+            height=280,
+            margin=dict(t=30, b=20, l=50, r=50),
+            showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
