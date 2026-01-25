@@ -374,22 +374,19 @@ st.markdown(f"""
 
 # Container do HUD
 with st.container():
-    c_hud1, c_hud2, c_hud3 = st.columns([1.2, 1, 1.2])
+    c_hud1, c_hud2, c_hud3 = st.columns([1.2, 1, 1.3]) # Aumentei levemente a coluna do gráfico
     
     with c_hud1:
         st.markdown(f"### <span style='color:{rank_info['color']}'>RANK {rank_info['name']}</span> | NÍVEL {st.session_state.data['lvl']}", unsafe_allow_html=True)
         
-        # Lógica de Título: Prioriza Conquista Ativa, senão usa o Rank
         titulo_exibido = st.session_state.data.get("active_title") or rank_info['title']
         st.caption(f"🛡️ Título: {titulo_exibido}")
         
-        # Status de Vida com Arredondamento (Respeita o Max HP dinâmico)
         hp_max_total = round(100 + hp_bonus, 1)
         hp_atual = round(st.session_state.data['hp'], 1)
         st.markdown(f"<span class='label-hp'>❤️ HP: {hp_atual}/{hp_max_total}</span>", unsafe_allow_html=True)
         st.progress(min(hp_atual / hp_max_total, 1.0))
         
-        # Status de Energia Dinâmico
         mp_atual = round(st.session_state.data['mp'], 1)
         st.markdown(f"<span class='label-mp'>🔷 MP: {mp_atual}/{mp_max_total}</span>", unsafe_allow_html=True)
         st.progress(min(mp_atual / mp_max_total, 1.0))
@@ -407,53 +404,54 @@ with st.container():
         st.caption("Modo Offline: Registro Local")
 
     with c_hud3:
-        # Tradução das Siglas para o Radar
         attr_nomes = {
             "STR": "FORÇA", "INT": "INTELIGÊNCIA", "AGI": "AGILIDADE", 
             "VIT": "VITALIDADE", "CHA": "CARISMA", "SEN": "PERCEPÇÃO"
         }
         
-        # Preparação dos dados: Fechando a geometria (repetindo o primeiro valor no final)
         labels = [attr_nomes.get(s, s) for s in stats_totais.keys()]
         values = [round(v, 1) for v in stats_totais.values()]
         
         l_plot = labels + [labels[0]]
         v_plot = values + [values[0]]
         
-        # Gráfico de Radar Neon Estilizado
         fig = go.Figure()
 
         fig.add_trace(go.Scatterpolar(
             r=v_plot,
             theta=l_plot,
             fill='toself',
-            line=dict(color=rank_info['color'], width=3), # Borda Neon
-            fillcolor=rank_info['glow'], # Preenchimento dinâmico
+            line=dict(color=rank_info['color'], width=3),
+            fillcolor=rank_info['glow'],
             marker=dict(color=rank_info['color'], size=8),
             hoverinfo='r+theta'
         ))
         
         fig.update_layout(
             polar=dict(
-                bgcolor="rgba(0,0,0,0)", # Fundo transparente do radar
+                bgcolor="rgba(0,0,0,0)",
                 radialaxis=dict(
                     visible=True, 
-                    range=[0, max(values) + 10], 
+                    range=[0, max(values) + 12], # Aumentei o respiro interno
                     showticklabels=False,
-                    gridcolor="rgba(255,255,255,0.1)" # Linhas de grade sutis
+                    gridcolor="rgba(255,255,255,0.1)"
                 ),
                 angularaxis=dict(
                     gridcolor="rgba(255,255,255,0.1)",
                     linecolor="rgba(255,255,255,0.2)",
-                    tickfont=dict(size=11, color="#ddd", family="Courier New") # Fonte Terminal
+                    tickfont=dict(size=10, color="#ddd", family="Courier New"),
+                    rotation=90, # Rotacionado para centralizar melhor nomes longos
+                    direction="clockwise"
                 )
             ),
-            paper_bgcolor="rgba(0,0,0,0)", # Dashboard transparente
+            paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font_color="white",
-            height=280,
-            margin=dict(t=30, b=20, l=50, r=50),
-            showlegend=False
+            height=320, # Aumentado para dar margem vertical
+            # MARGENS EXPANDIDAS: O segredo para não cortar a Vitalidade
+            margin=dict(t=60, b=60, l=80, r=80), 
+            showlegend=False,
+            autosize=True
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
