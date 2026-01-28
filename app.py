@@ -483,12 +483,25 @@ with tab1:
     def run_quest(quest_id, mp_cost, hp_cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
         final_mp_cost = round(max(0, mp_cost - mp_red) if int_g > 0 else mp_cost, 1)
         
-        if st.session_state.data["mp"] >= final_mp_cost and st.session_state.data["hp"] > hp_cost:
+        # Lógica de Cura: Se hp_cost for negativo, ele cura o jogador
+        is_healing = hp_cost < 0
+        can_execute = False
+        
+        if is_healing:
+            can_execute = st.session_state.data["mp"] >= final_mp_cost
+        else:
+            can_execute = st.session_state.data["mp"] >= final_mp_cost and st.session_state.data["hp"] > hp_cost
+
+        if can_execute:
             streak_count = update_quest_streak(quest_id)
             s_mult = get_streak_multiplier(quest_id)
             
             st.session_state.data["mp"] -= final_mp_cost
-            st.session_state.data["hp"] -= hp_cost
+            if is_healing:
+                max_hp = 100 + hp_bonus
+                st.session_state.data["hp"] = min(max_hp, st.session_state.data["hp"] + abs(hp_cost))
+            else:
+                st.session_state.data["hp"] -= hp_cost
             
             stats = st.session_state.data["stats"]
             stats["STR"] += str_g; stats["INT"] += int_g; stats["AGI"] += agi_g
@@ -499,22 +512,23 @@ with tab1:
             final_coins = int(coins * (1 + coin_boost))
             
             feedback = f"{msg} | Streak: 🔥{streak_count}"
-            if hp_cost > 0: feedback += f" | ❤️ -{hp_cost} HP"
+            if hp_cost != 0: feedback += f" | ❤️ {'+' if is_healing else '-'}{abs(hp_cost)} HP"
             
             add_xp(final_xp, final_coins, feedback)
             st.rerun()
         else:
-            if st.session_state.data["hp"] <= hp_cost:
-                st.error(f"⚠️ EXAUSTÃO EXTREMA! HP Insuficiente.")
+            if not is_healing and st.session_state.data["hp"] <= hp_cost:
+                st.error("⚠️ EXAUSTÃO EXTREMA! HP insuficiente.")
             else:
-                st.error(f"Mana Insuficiente! Falta {round(final_mp_cost - st.session_state.data['mp'], 1)} MP.")
+                st.error(f"Mana insuficiente! Falta {round(final_mp_cost - st.session_state.data['mp'], 1)} MP.")
 
     def quest_card(quest_id, label, subtext, key, mp_c, hp_c, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc):
         streak = st.session_state.data["streaks"].get(quest_id, {}).get("count", 0)
         mult = get_streak_multiplier(quest_id)
         aura_class = "streak-aura" if streak >= 3 else ""
         flame = f" <span style='color:#ff4b4b;'>🔥{streak}</span>" if streak > 0 else ""
-        hp_display = f" | ❤️ {hp_c}" if hp_c > 0 else ""
+        hp_icon = "💚" if hp_c < 0 else "❤️"
+        hp_display = f" | {hp_icon} {abs(hp_c)}" if hp_c != 0 else ""
         
         st.markdown(f"""
             <div class='quest-card {aura_class}'>
@@ -525,28 +539,47 @@ with tab1:
         if st.button("EXECUTAR", key=key, use_container_width=True):
             run_quest(quest_id, mp_c, hp_c, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc)
 
+    # GRID DE MISSÕES EXPANDIDO (12 MISSÕES)
+    st.write("🏥 **INTERNATO & CONHECIMENTO**")
     r1c1, r1c2, r1c3 = st.columns(3)
-    with r1c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP", "q1", 20, 10, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
-    with r1c2: 
-        c_int = round(max(0, 15 - mp_red), 1)
-        quest_card("estudo", "📖 ESTUDO CASO", f"{c_int} MP", "q2", 15, 0, 0, 0.5, 0, 0, 0, 0, 25, 12, "Estudo de Clínica")
-    with r1c3: 
-        st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>0 MP | ❤️ +15 HP</small></div>", unsafe_allow_html=True)
+    with r1c1: quest_card("anki", "🧠 FOCO NO ANKI", "10 MP", "q_anki", 10, 0, 0, 0.5, 0, 0, 0, 0, 25, 10, "Revisão Diária")
+    with r1c2: quest_card("evol", "✍️ EVOLUÇÃO ELITE", "15 MP | ❤️ 5", "q_evol", 15, 5, 0, 0.3, 0, 0, 0, 0.3, 30, 15, "Prática Hospitalar")
+    with r1c3: quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP | ❤️ 25", "q_med", 25, 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
+
+    st.write("🏋️ **PERFORMANCE & MOVIMENTO**")
+    r2c1, r2c2, r2c3 = st.columns(3)
+    with r2c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP | ❤️ 10", "q1", 20, 10, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
+    with r2c2: quest_card("ladeiras", "🏃 LADEIRAS DIAM.", "15 MP | ❤️ 15", "q_lad", 15, 15, 0, 0, 0.5, 0.2, 0, 0, 40, 20, "Cardio em Diamantina")
+    with r2c3: quest_card("mob", "🧘 MOBILIDADE", "5 MP | 💚 5", "q_mob", 5, -5, 0, 0, 0, 0.3, 0, 0, 15, 5, "Alongamento e Recuperação")
+
+    st.write("🔱 **LOGÍSTICA DO MONARCA**")
+    r3c1, r3c2, r3c3 = st.columns(3)
+    with r3c1: quest_card("nutri", "🍱 LOGÍSTICA NUTRI", "10 MP", "q_nut", 10, 0, 0, 0, 0.4, 0, 0, 0, 20, 10, "Preparo de Marmitas")
+    with r3c2: quest_card("base", "🏠 ARRUMAR BASE", "10 MP", "q4", 10, 0, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização do Ambiente")
+    with r3c3: quest_card("brief", "📋 BRIEFING MATINAL", "5 MP", "q_brief", 5, 0, 0, 0, 0.3, 0, 0, 0, 15, 5, "Planejamento do Dia")
+
+    st.write("✨ **PROTOCOLOS DE REGENERAÇÃO**")
+    r4c1, r4c2, r4c3 = st.columns(3)
+    with r4c1: # Hidratação
+        st.markdown("<div class='quest-card'>💧 PROTOCOLO HIDRO<br><small>0 MP | 💚 +10 HP</small></div>", unsafe_allow_html=True)
+        if st.button("EXECUTAR", key="q_hidro", use_container_width=True):
+            st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 10)
+            run_quest("hidro", 0, 0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Hidratação Máxima")
+    with r4c2: # Higiene do Sono
+        st.markdown("<div class='quest-card'>🌑 HIGIENE DO SONO<br><small>0 MP | 💚 +20 HP</small></div>", unsafe_allow_html=True)
+        if st.button("EXECUTAR", key="q_sono_hab", use_container_width=True):
+            st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 20)
+            run_quest("sono_hab", 0, 0, 0, 0, 0, 0, 0, 0.4, 20, 10, "Descanso Preparatório")
+    with r4c3: # Suplementação
+        st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>0 MP | 💚 +15 HP</small></div>", unsafe_allow_html=True)
         if st.button("EXECUTAR", key="q3", use_container_width=True):
             st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 15)
             run_quest("suple", 0, 0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
 
-    r2c1, r2c2, r2c3 = st.columns(3)
-    with r2c1: quest_card("base", "🏠 ARRUMAR BASE", "10 MP", "q4", 10, 0, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização")
-    with r2c2: quest_card("comun", "🗣️ COMUNICAÇÃO", "10 MP", "q5", 10, 0, 0, 0, 0, 0, 0.3, 0, 15, 8, "Treino Vocal")
-    with r2c3: quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP", "q6", 25, 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
-
     st.divider()
-
-    # ATUALIZAÇÃO: Sono agora respeita o MP Máximo calculado
-    if st.button("💤 SONO REPARADOR", use_container_width=True):
+    if st.button("💤 SONO REPARADOR (RESET DIÁRIO)", use_container_width=True):
         st.session_state.data["hp"] = round(100 + hp_bonus, 1)
-        st.session_state.data["mp"] = mp_max_total 
+        st.session_state.data["mp"] = mp_max_total
         st.toast(f"Status Restaurados! (MP Máx: {mp_max_total})", icon="🌙")
         st.rerun()
 
@@ -663,4 +696,4 @@ with tab6:
 with tab7:
     st.markdown("### 📜 REGISTROS DE AKASHA")
     for log in reversed(st.session_state.data["history"][-15:]):
-        st.write(f"🛡️ {log}")        
+        st.write(f"🛡️ {log}")
