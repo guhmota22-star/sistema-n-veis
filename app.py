@@ -483,7 +483,6 @@ with tab1:
     def run_quest(quest_id, mp_cost, hp_cost, str_g, int_g, agi_g, vit_g, cha_g, sen_g, xp, coins, msg):
         final_mp_cost = round(max(0, mp_cost - mp_red) if int_g > 0 else mp_cost, 1)
         
-        # Lógica de Cura: Se hp_cost for negativo, ele cura o jogador
         is_healing = hp_cost < 0
         can_execute = False
         
@@ -539,42 +538,41 @@ with tab1:
         if st.button("EXECUTAR", key=key, use_container_width=True):
             run_quest(quest_id, mp_c, hp_c, s_g, i_g, a_g, v_g, c_g, sn_g, xp_b, coin_b, desc)
 
-    # GRID DE MISSÕES EXPANDIDO (12 MISSÕES)
+    # --- LINHA 1: INTERNATO & CONHECIMENTO ---
     st.write("🏥 **INTERNATO & CONHECIMENTO**")
     r1c1, r1c2, r1c3 = st.columns(3)
-    with r1c1: quest_card("anki", "🧠 FOCO NO ANKI", "10 MP", "q_anki", 10, 0, 0, 0.5, 0, 0, 0, 0, 25, 10, "Revisão Diária")
-    with r1c2: quest_card("evol", "✍️ EVOLUÇÃO ELITE", "15 MP | ❤️ 5", "q_evol", 15, 5, 0, 0.3, 0, 0, 0, 0.3, 30, 15, "Prática Hospitalar")
-    with r1c3: quest_card("med", "🎓 PLANTÃO/PRÁTICA", "25 MP | ❤️ 25", "q_med", 25, 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Internato Hospitalar")
+    with r1c1: quest_card("anki", "🧠 ANKI", "10 MP", "q_anki", 10, 0, 0, 0.5, 0, 0, 0, 0, 25, 10, "Revisão de Cards")
+    with r1c2: quest_card("estudo", "📖 ESTUDO", "15 MP", "q_est", 15, 0, 0, 0.5, 0, 0, 0, 0, 25, 12, "Teoria Médica")
+    with r1c3: quest_card("plantao", "🎓 PLANTÃO", "25 MP | ❤️ 25", "q_med", 25, 25, 0, 0, 0, 0, 0, 0.6, 45, 20, "Prática Hospitalar")
 
-    st.write("🏋️ **PERFORMANCE & MOVIMENTO**")
+    # --- LINHA 2: PARTE FÍSICA ---
+    st.write("💪 **PARTE FÍSICA**")
     r2c1, r2c2, r2c3 = st.columns(3)
-    with r2c1: quest_card("treino", "🏋️ TREINO PESADO", "20 MP | ❤️ 10", "q1", 20, 10, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
-    with r2c2: quest_card("ladeiras", "🏃 LADEIRAS DIAM.", "15 MP | ❤️ 15", "q_lad", 15, 15, 0, 0, 0.5, 0.2, 0, 0, 40, 20, "Cardio em Diamantina")
-    with r2c3: quest_card("mob", "🧘 MOBILIDADE", "5 MP | 💚 5", "q_mob", 5, -5, 0, 0, 0, 0.3, 0, 0, 15, 5, "Alongamento e Recuperação")
-
-    st.write("🔱 **LOGÍSTICA DO MONARCA**")
-    r3c1, r3c2, r3c3 = st.columns(3)
-    with r3c1: quest_card("nutri", "🍱 LOGÍSTICA NUTRI", "10 MP", "q_nut", 10, 0, 0, 0, 0.4, 0, 0, 0, 20, 10, "Preparo de Marmitas")
-    with r3c2: quest_card("base", "🏠 ARRUMAR BASE", "10 MP", "q4", 10, 0, 0, 0, 0.3, 0, 0, 0, 20, 10, "Organização do Ambiente")
-    with r3c3: quest_card("brief", "📋 BRIEFING MATINAL", "5 MP", "q_brief", 5, 0, 0, 0, 0.3, 0, 0, 0, 15, 5, "Planejamento do Dia")
-
-    st.write("✨ **PROTOCOLOS DE REGENERAÇÃO**")
-    r4c1, r4c2, r4c3 = st.columns(3)
-    with r4c1: # Hidratação
-        st.markdown("<div class='quest-card'>💧 PROTOCOLO HIDRO<br><small>0 MP | 💚 +10 HP</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q_hidro", use_container_width=True):
+    with r2c1: quest_card("musc", "🏋️ MUSCULAÇÃO", "20 MP | ❤️ 10", "q_musc", 20, 10, 0.5, 0, 0, 0, 0, 0, 30, 15, "Treino de Hipertrofia")
+    with r2c2: quest_card("fut", "⚽ FUTEBOL", "20 MP | ❤️ 20", "q_fut", 20, 20, 0.3, 0, 0.4, 0, 0, 0, 35, 18, "Partida de Futebol")
+    with r2c3: # Dieta regenera HP e MP não é custo
+        st.markdown("<div class='quest-card'>🥗 DIETA (DIA COMPLETO)<br><small>0 MP | 💚 +10 HP</small></div>", unsafe_allow_html=True)
+        if st.button("EXECUTAR", key="q_dieta", use_container_width=True):
             st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 10)
-            run_quest("hidro", 0, 0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Hidratação Máxima")
-    with r4c2: # Higiene do Sono
-        st.markdown("<div class='quest-card'>🌑 HIGIENE DO SONO<br><small>0 MP | 💚 +20 HP</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q_sono_hab", use_container_width=True):
-            st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 20)
-            run_quest("sono_hab", 0, 0, 0, 0, 0, 0, 0, 0.4, 20, 10, "Descanso Preparatório")
-    with r4c3: # Suplementação
+            run_quest("dieta", 0, 0, 0, 0, 0, 0.3, 0, 0, 20, 10, "Adesão Nutricional")
+
+    # --- LINHA 3: LOGÍSTICA ---
+    st.write("🧹 **LOGÍSTICA**")
+    r3c1, r3c2, r3c3 = st.columns(3)
+    with r3c1: quest_card("louca", "🍽️ LOUÇA", "5 MP", "q_louca", 5, 0, 0, 0, 0.2, 0, 0, 0, 10, 5, "Organização de Casa")
+    with r3c2: quest_card("limp", "🧹 LIMPEZA", "10 MP", "q_limp", 10, 0, 0, 0, 0.3, 0, 0, 0, 15, 8, "Ordem no Ambiente")
+    with r3c3: quest_card("org", "📋 ORGANIZAÇÃO", "5 MP", "q_org", 5, 0, 0, 0, 0.3, 0, 0, 0, 10, 5, "Planejamento e Ordem")
+
+    # --- LINHA 4: AUTOCUIDADO ---
+    st.write("✨ **AUTOCUIDADO**")
+    r4c1, r4c2, r4c3 = st.columns(3)
+    with r4c1: # Suplementação cura HP
         st.markdown("<div class='quest-card'>💊 SUPLEMENTAÇÃO<br><small>0 MP | 💚 +15 HP</small></div>", unsafe_allow_html=True)
-        if st.button("EXECUTAR", key="q3", use_container_width=True):
+        if st.button("EXECUTAR", key="q_sup", use_container_width=True):
             st.session_state.data["hp"] = min(100 + hp_bonus, st.session_state.data["hp"] + 15)
             run_quest("suple", 0, 0, 0, 0, 0, 0.2, 0, 0, 10, 5, "Protocolo de Saúde")
+    with r4c2: quest_card("leit", "📚 LEITURA", "5 MP", "q_leit", 5, 0, 0, 0.2, 0, 0, 0, 0.2, 15, 8, "Hábito Literário")
+    with r4c3: quest_card("fono", "🗣️ FONO", "10 MP", "q_fono", 10, 0, 0, 0, 0, 0, 0.4, 0, 20, 10, "Treino Vocal/Comunicação")
 
     st.divider()
     if st.button("💤 SONO REPARADOR (RESET DIÁRIO)", use_container_width=True):
