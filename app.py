@@ -95,9 +95,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (SISTEMA DE AKASHA) ---
+# --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (SISTEMA DE AKASHA v2.0) ---
 
-# 1. Banco de Dados de Equipamentos (Itens Reais serão adicionados via Fundos)
+# 1. Banco de Dados de Equipamentos (Poderão ser comprados via Fundos de Investimento)
 EQUIPMENT_DB = {
     "Assinatura de Banco de Questões": {"slot": "head", "bonus_int": 2, "xp_mult": 0.15, "desc": "+15% XP em Estudos"},
     "Tênis de Plantão": {"slot": "body", "hp_max": 20, "desc": "+20 HP Máximo"},
@@ -107,7 +107,7 @@ EQUIPMENT_DB = {
     "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"}
 }
 
-# 2. Conquistas em Tiers (Evoluem com o Hábito)
+# 2. Conquistas em Tiers (Evolução por Consistência de Hábito)
 ACHIEVEMENTS_DB = {
     "Anki I (7 dias)": {"streak_req": 7, "quest_id": "anki", "mp_bonus": 5, "desc": "+5 MP Máximo"},
     "Anki II (21 dias)": {"streak_req": 21, "quest_id": "anki", "mp_bonus": 15, "desc": "+15 MP Máximo"},
@@ -120,40 +120,49 @@ ACHIEVEMENTS_DB = {
     "Disciplina de Ferro": {"streak_req": 7, "title": "O Inabalável", "desc": "Mantenha a Trifeta por 7 dias"}
 }
 
-# 3. Definição do Rodízio e Ranks (Focado em Ciclo de 3 Meses)
+# 3. Contratos Reais (Metas Físicas para o Rodízio Atual)
+DEFAULT_REAL_REWARDS = [
+    {"id": "rank_c", "name": "Scrub Premium ou Esteto Novo", "type": "lvl", "req": 20, "status": "Bloqueado"},
+    {"id": "mestria_int", "name": "Livro/Curso de Residência", "type": "stat", "target": "INT", "req": 50, "status": "Bloqueado"},
+    {"id": "forca_str", "name": "Acessório de Elite (Cinto LPO/Straps)", "type": "stat", "target": "STR", "req": 50, "status": "Bloqueado"},
+    {"id": "resiliencia", "name": "Final de Semana de Descanso Total", "type": "streak", "req": 21, "status": "Bloqueado"},
+    {"id": "tesouro", "name": "Jantar no Restaurante Favorito", "type": "coins", "req": 5000, "status": "Bloqueado"}
+]
+
+# 4. Motor de Rank e Inicialização de Dados
 def get_rank_info(level):
     if level < 8: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
     if level < 16: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
     if level < 24: return {"name": "C", "color": "#2196f3", "glow": "rgba(33, 150, 243, 0.5)", "title": "Residente Aspirante"}
     if level < 32: return {"name": "B", "color": "#9c27b0", "glow": "rgba(156, 39, 176, 0.5)", "title": "Mestre da Clínica"}
     if level < 40: return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
-    return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano de GO"}
+    return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano do Trauma"}
 
 def get_initial_data():
     return {
         "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
         "last_access": str(datetime.date.today()),
-        "rodizio": "Ginecologia e Obstetrícia",
-        "punishment_counter": 10, # Começa com 10 de cada
+        "rodizio": "Urgência e Emergência",
+        "punishment_counter": 10,
         "daily_trifeta": {"med": False, "phys": False, "log": False},
         "investment_funds": {"Medicina": 0, "Treino": 0, "Ordem": 0},
         "stats": {"STR": 10, "INT": 10, "AGI": 10, "VIT": 10, "CHA": 10, "SEN": 10},
         "inventory": [], "equipped": {"head": None, "body": None, "hands": None, "accessory": None},
-        "achievements": [], "active_title": None, "history": [], "streaks": {}
+        "achievements": [], "active_title": None, "history": [], "streaks": {},
+        "real_rewards": DEFAULT_REAL_REWARDS
     }
 
-# 4. Funções de Cálculo e Persistência
 def get_xp_needed(lvl):
-    # Fórmula Linear para alcançar Nível 40 em ~90 dias (aprox 350 XP/dia)
+    # Progressão Linear: Calibrada para atingir Rank S em ~90 dias de rodízio
     return 100 + (lvl * 30)
 
 def get_total_stats():
-    # Bônus HP por nível escalado
+    # Bônus HP por nível e bônus de MP por inteligência
     hp_extra = (st.session_state.data["lvl"] - 1) * 8
     mp_extra = 0
     base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
     
-    # Bônus de Equipamentos
+    # Bônus de Itens Equipados
     equipped = st.session_state.data["equipped"]
     for slot, item_name in equipped.items():
         if item_name in EQUIPMENT_DB:
@@ -171,38 +180,40 @@ def get_total_stats():
     hp_max_total = round(100 + hp_extra, 1)
     return base, hp_max_total, mp_max_calc
 
-# 5. Inicialização e Lógica de Punição Física
+# 5. Inicialização Segura e Reparo de Save (Evita KeyError: 'real_rewards')
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Patch para saves antigos
+    # Patch de Sobrevivência: Injeta chaves novas em saves carregados
     patch = {
         "punishment_counter": 10, 
         "daily_trifeta": {"med": False, "phys": False, "log": False},
         "investment_funds": {"Medicina": 0, "Treino": 0, "Ordem": 0},
-        "rodizio": "GO"
+        "rodizio": "Urgência e Emergência",
+        "real_rewards": DEFAULT_REAL_REWARDS
     }
     for key, val in patch.items():
-        if key not in st.session_state.data: st.session_state.data[key] = val
+        if key not in st.session_state.data: 
+            st.session_state.data[key] = val
 
-# Lógica de Virada de Dia (Punição e Persistência)
+# 6. Lógica de Virada de Dia (Punição por Falha na Trifeta)
 hoje = str(datetime.date.today())
 if st.session_state.data["last_access"] != hoje:
-    # Verifica Trifeta do dia anterior
     t = st.session_state.data["daily_trifeta"]
+    # Se falhou em qualquer um dos 3 pilares, a punição física aumenta
     if not (t["med"] and t["phys"] and t["log"]):
         st.session_state.data["punishment_counter"] += 5
-        st.warning(f"⚠️ TRIFETA INCOMPLETA! Punição aumentada para {st.session_state.data['punishment_counter']} reps/min.")
+        st.warning(f"⚠️ TRIFETA INCOMPLETA! Dívida física subiu para {st.session_state.data['punishment_counter']} repetições.")
     
-    # Reset da Trifeta Diária
+    # Reseta apenas o checklist do dia, status (HP/MP) persistem
     st.session_state.data["daily_trifeta"] = {"med": False, "phys": False, "log": False}
     st.session_state.data["last_access"] = hoje
-    # NOTA: HP e MP NÃO RESETAM AQUI (Persistência Real)
 
+# Coleta de informações globais para o HUD e Quests
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_max_total, mp_max_total = get_total_stats()
 
-# Estilos Visuais Dinâmicos
+# Estilo Dinâmico de Aura (Cores do Rank)
 st.markdown(f"<style>h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}</style>", unsafe_allow_html=True)
 
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
