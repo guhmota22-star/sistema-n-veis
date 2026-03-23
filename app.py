@@ -97,7 +97,7 @@ st.markdown("""
 
 # --- 2. GESTÃO DE DADOS E LÓGICA DE RANK (SISTEMA DE AKASHA v2.0) ---
 
-# 1. Banco de Dados de Equipamentos (Poderão ser comprados via Fundos de Investimento)
+# 1. Banco de Dados de Equipamentos
 EQUIPMENT_DB = {
     "Assinatura de Banco de Questões": {"slot": "head", "bonus_int": 2, "xp_mult": 0.15, "desc": "+15% XP em Estudos"},
     "Tênis de Plantão": {"slot": "body", "hp_max": 20, "desc": "+20 HP Máximo"},
@@ -107,20 +107,18 @@ EQUIPMENT_DB = {
     "Smartwatch Pro": {"slot": "accessory", "coin_mult": 0.10, "desc": "+10% Moedas ganhas"}
 }
 
-# 2. Conquistas em Tiers (Evolução por Consistência de Hábito)
+# 2. Conquistas em Tiers
 ACHIEVEMENTS_DB = {
     "Anki I (7 dias)": {"streak_req": 7, "quest_id": "anki", "mp_bonus": 5, "desc": "+5 MP Máximo"},
     "Anki II (21 dias)": {"streak_req": 21, "quest_id": "anki", "mp_bonus": 15, "desc": "+15 MP Máximo"},
     "Anki III (50 dias)": {"streak_req": 50, "quest_id": "anki", "mp_bonus": 30, "desc": "+30 MP e -5% Custo INT"},
-    
     "Dieta I (7 dias)": {"streak_req": 7, "quest_id": "dieta", "hp_bonus": 5, "desc": "+5 HP Máximo"},
     "Dieta II (14 dias)": {"streak_req": 14, "quest_id": "dieta", "hp_bonus": 10, "desc": "+10 HP Máximo"},
     "Dieta III (30 dias)": {"streak_req": 30, "quest_id": "dieta", "hp_bonus": 20, "desc": "+20 HP e -5% Custo Físico"},
-    
     "Disciplina de Ferro": {"streak_req": 7, "title": "O Inabalável", "desc": "Mantenha a Trifeta por 7 dias"}
 }
 
-# 3. Contratos Reais (Metas Físicas para o Rodízio Atual)
+# 3. Contratos Reais
 DEFAULT_REAL_REWARDS = [
     {"id": "rank_c", "name": "Scrub Premium ou Esteto Novo", "type": "lvl", "req": 20, "status": "Bloqueado"},
     {"id": "mestria_int", "name": "Livro/Curso de Residência", "type": "stat", "target": "INT", "req": 50, "status": "Bloqueado"},
@@ -129,7 +127,7 @@ DEFAULT_REAL_REWARDS = [
     {"id": "tesouro", "name": "Jantar no Restaurante Favorito", "type": "coins", "req": 5000, "status": "Bloqueado"}
 ]
 
-# 4. Motor de Rank e Inicialização de Dados
+# 4. Funções de Suporte (Rank e XP)
 def get_rank_info(level):
     if level < 8: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
     if level < 16: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
@@ -138,6 +136,54 @@ def get_rank_info(level):
     if level < 40: return {"name": "A", "color": "#ff5722", "glow": "rgba(255, 87, 34, 0.5)", "title": "Monarca Hospitalar"}
     return {"name": "S", "color": "#ffcc00", "glow": "rgba(255, 204, 0, 0.6)", "title": "Soberano do Trauma"}
 
+def get_xp_needed(lvl):
+    return 100 + (lvl * 30)
+
+# --- NOVA ADIÇÃO: FUNÇÕES DE STREAK (CORREÇÃO DO NAMEERROR) ---
+def update_quest_streak(quest_id):
+    hoje = datetime.date.today()
+    ontem = hoje - datetime.timedelta(days=1)
+    if "streaks" not in st.session_state.data: st.session_state.data["streaks"] = {}
+    
+    if quest_id not in st.session_state.data["streaks"]:
+        st.session_state.data["streaks"][quest_id] = {"count": 1, "last_date": str(hoje)}
+        return 1
+    
+    streak_data = st.session_state.data["streaks"][quest_id]
+    last_date = datetime.datetime.strptime(streak_data["last_date"], "%Y-%m-%d").date()
+    
+    if last_date == ontem:
+        streak_data["count"] += 1
+        streak_data["last_date"] = str(hoje)
+    elif last_date < ontem:
+        streak_data["count"] = 1
+        streak_data["last_date"] = str(hoje)
+    return streak_data["count"]
+
+def get_streak_multiplier(quest_id):
+    count = st.session_state.data.get("streaks", {}).get(quest_id, {}).get("count", 0)
+    if count >= 3: return min(0.50, (count - 2) * 0.05)
+    return 0.0
+
+def get_total_stats():
+    hp_extra = (st.session_state.data["lvl"] - 1) * 8
+    mp_extra = 0
+    base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
+    equipped = st.session_state.data["equipped"]
+    for slot, item_name in equipped.items():
+        if item_name in EQUIPMENT_DB:
+            item = EQUIPMENT_DB[item_name]
+            for stat in base: base[stat] += item.get(f"bonus_{stat.lower()}", 0)
+            hp_extra += item.get("hp_max", 0)
+    for ach_name, ach_info in ACHIEVEMENTS_DB.items():
+        if ach_name in st.session_state.data.get("achievements", []):
+            hp_extra += ach_info.get("hp_bonus", 0)
+            mp_extra += ach_info.get("mp_bonus", 0)
+    mp_max_calc = round(100 + (base["INT"] - 10) * 5 + mp_extra, 1)
+    hp_max_total = round(100 + hp_extra, 1)
+    return base, hp_max_total, mp_max_calc
+
+# 5. Inicialização e Reparo
 def get_initial_data():
     return {
         "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
@@ -152,68 +198,27 @@ def get_initial_data():
         "real_rewards": DEFAULT_REAL_REWARDS
     }
 
-def get_xp_needed(lvl):
-    # Progressão Linear: Calibrada para atingir Rank S em ~90 dias de rodízio
-    return 100 + (lvl * 30)
-
-def get_total_stats():
-    # Bônus HP por nível e bônus de MP por inteligência
-    hp_extra = (st.session_state.data["lvl"] - 1) * 8
-    mp_extra = 0
-    base = {s: round(v, 1) for s, v in st.session_state.data["stats"].items()}
-    
-    # Bônus de Itens Equipados
-    equipped = st.session_state.data["equipped"]
-    for slot, item_name in equipped.items():
-        if item_name in EQUIPMENT_DB:
-            item = EQUIPMENT_DB[item_name]
-            for stat in base: base[stat] += item.get(f"bonus_{stat.lower()}", 0)
-            hp_extra += item.get("hp_max", 0)
-    
-    # Bônus de Conquistas em Tiers
-    for ach_name, ach_info in ACHIEVEMENTS_DB.items():
-        if ach_name in st.session_state.data["achievements"]:
-            hp_extra += ach_info.get("hp_bonus", 0)
-            mp_extra += ach_info.get("mp_bonus", 0)
-    
-    mp_max_calc = round(100 + (base["INT"] - 10) * 5 + mp_extra, 1)
-    hp_max_total = round(100 + hp_extra, 1)
-    return base, hp_max_total, mp_max_calc
-
-# 5. Inicialização Segura e Reparo de Save (Evita KeyError: 'real_rewards')
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    # Patch de Sobrevivência: Injeta chaves novas em saves carregados
-    patch = {
-        "punishment_counter": 10, 
-        "daily_trifeta": {"med": False, "phys": False, "log": False},
-        "investment_funds": {"Medicina": 0, "Treino": 0, "Ordem": 0},
-        "rodizio": "Urgência e Emergência",
-        "real_rewards": DEFAULT_REAL_REWARDS
-    }
+    patch = {"punishment_counter": 10, "daily_trifeta": {"med": False, "phys": False, "log": False}, 
+             "investment_funds": {"Medicina": 0, "Treino": 0, "Ordem": 0}, "real_rewards": DEFAULT_REAL_REWARDS, "streaks": {}}
     for key, val in patch.items():
-        if key not in st.session_state.data: 
-            st.session_state.data[key] = val
+        if key not in st.session_state.data: st.session_state.data[key] = val
 
-# 6. Lógica de Virada de Dia (Punição por Falha na Trifeta)
+# 6. Virada de Dia
 hoje = str(datetime.date.today())
 if st.session_state.data["last_access"] != hoje:
     t = st.session_state.data["daily_trifeta"]
-    # Se falhou em qualquer um dos 3 pilares, a punição física aumenta
     if not (t["med"] and t["phys"] and t["log"]):
         st.session_state.data["punishment_counter"] += 5
-        st.warning(f"⚠️ TRIFETA INCOMPLETA! Dívida física subiu para {st.session_state.data['punishment_counter']} repetições.")
-    
-    # Reseta apenas o checklist do dia, status (HP/MP) persistem
     st.session_state.data["daily_trifeta"] = {"med": False, "phys": False, "log": False}
     st.session_state.data["last_access"] = hoje
 
-# Coleta de informações globais para o HUD e Quests
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_max_total, mp_max_total = get_total_stats()
 
-# Estilo Dinâmico de Aura (Cores do Rank)
+# Estilos de Aura
 st.markdown(f"<style>h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}</style>", unsafe_allow_html=True)
 
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
