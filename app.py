@@ -127,7 +127,7 @@ DEFAULT_REAL_REWARDS = [
     {"id": "tesouro", "name": "Jantar no Restaurante Favorito", "type": "coins", "req": 5000, "status": "Bloqueado"}
 ]
 
-# 4. Funções de Suporte (Rank e XP)
+# 4. Funções de Suporte (Rank e Streaks)
 def get_rank_info(level):
     if level < 8: return {"name": "E", "color": "#9e9e9e", "glow": "rgba(158, 158, 158, 0.5)", "title": "Interno Novato"}
     if level < 16: return {"name": "D", "color": "#4caf50", "glow": "rgba(76, 175, 80, 0.5)", "title": "Interno Veterano"}
@@ -139,25 +139,19 @@ def get_rank_info(level):
 def get_xp_needed(lvl):
     return 100 + (lvl * 30)
 
-# --- NOVA ADIÇÃO: FUNÇÕES DE STREAK (CORREÇÃO DO NAMEERROR) ---
 def update_quest_streak(quest_id):
     hoje = datetime.date.today()
     ontem = hoje - datetime.timedelta(days=1)
     if "streaks" not in st.session_state.data: st.session_state.data["streaks"] = {}
-    
     if quest_id not in st.session_state.data["streaks"]:
         st.session_state.data["streaks"][quest_id] = {"count": 1, "last_date": str(hoje)}
         return 1
-    
     streak_data = st.session_state.data["streaks"][quest_id]
     last_date = datetime.datetime.strptime(streak_data["last_date"], "%Y-%m-%d").date()
-    
     if last_date == ontem:
-        streak_data["count"] += 1
-        streak_data["last_date"] = str(hoje)
+        streak_data["count"] += 1; streak_data["last_date"] = str(hoje)
     elif last_date < ontem:
-        streak_data["count"] = 1
-        streak_data["last_date"] = str(hoje)
+        streak_data["count"] = 1; streak_data["last_date"] = str(hoje)
     return streak_data["count"]
 
 def get_streak_multiplier(quest_id):
@@ -183,7 +177,7 @@ def get_total_stats():
     hp_max_total = round(100 + hp_extra, 1)
     return base, hp_max_total, mp_max_calc
 
-# 5. Inicialização e Reparo
+# 5. Inicialização e Mecanismo de Reparo (Patch)
 def get_initial_data():
     return {
         "lvl": 1, "xp": 0, "hp": 100, "mp": 100, "coins": 0, "points": 0,
@@ -201,12 +195,13 @@ def get_initial_data():
 if 'data' not in st.session_state:
     st.session_state.data = get_initial_data()
 else:
-    patch = {"punishment_counter": 10, "daily_trifeta": {"med": False, "phys": False, "log": False}, 
-             "investment_funds": {"Medicina": 0, "Treino": 0, "Ordem": 0}, "real_rewards": DEFAULT_REAL_REWARDS, "streaks": {}}
-    for key, val in patch.items():
-        if key not in st.session_state.data: st.session_state.data[key] = val
+    # PATCH DEFINITIVO: Garante que TODAS as chaves novas existam no save antigo
+    patch_defaults = get_initial_data()
+    for key, value in patch_defaults.items():
+        if key not in st.session_state.data:
+            st.session_state.data[key] = value
 
-# 6. Virada de Dia
+# 6. Virada de Dia e Persistência
 hoje = str(datetime.date.today())
 if st.session_state.data["last_access"] != hoje:
     t = st.session_state.data["daily_trifeta"]
@@ -218,7 +213,7 @@ if st.session_state.data["last_access"] != hoje:
 rank_info = get_rank_info(st.session_state.data["lvl"])
 stats_totais, hp_max_total, mp_max_total = get_total_stats()
 
-# Estilos de Aura
+# Estilo Dinâmico
 st.markdown(f"<style>h1, h2, h3 {{ color: {rank_info['color']} !important; text-shadow: 0 0 10px {rank_info['glow']} !important; }}</style>", unsafe_allow_html=True)
 
 # --- 3. BARRA LATERAL: REGISTRO DE AKASHA & ID ---
